@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <title>VisiTrack – Manual</title>
+    <style>
+      /* ── Sidformat ─────────────────────────────────────────────────────── */
+      @page {
+        size: A4;
+        margin: 17mm 16mm 16mm;
+      }
+
+      :root {
+        --primary: #3563b8;
+        --primary-soft: #eef3fc;
+        --ink: #111827;
+        --muted: #5b6472;
+        --line: #e5e7eb;
+        --success: #15803d;
+        --success-soft: #ecfdf3;
+        --warning: #9a5b00;
+        --warning-soft: #fff6e5;
+        --surface: #f9fafb;
+      }
+
+      * { box-sizing: border-box; }
+
+      html {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        font-size: 10.5pt;
+        line-height: 1.55;
+        color: var(--ink);
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      body { margin: 0; }
+
+      h1, h2, h3 { line-height: 1.2; letter-spacing: -0.015em; margin: 0; }
+      h2 { font-size: 19pt; margin: 0 0 4mm; }
+      h3 { font-size: 12.5pt; margin: 7mm 0 2mm; }
+      p { margin: 0 0 3mm; }
+      ul, ol { margin: 0 0 3mm; padding-left: 5mm; }
+      li { margin-bottom: 1.5mm; }
+      strong { font-weight: 600; }
+      code {
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 0.88em;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        padding: 0.5mm 1.2mm;
+      }
+
+      /* ── Omslag ────────────────────────────────────────────────────────── */
+      .cover {
+        height: 251mm;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        page-break-after: always;
+      }
+      .logo {
+        width: 17mm; height: 17mm;
+        border-radius: 5mm;
+        background: var(--primary);
+        display: grid; place-items: center;
+        margin-bottom: 9mm;
+      }
+      .logo svg { width: 9mm; height: 9mm; }
+      .cover h1 { font-size: 34pt; font-weight: 640; }
+      .cover .lead { font-size: 14pt; color: var(--muted); margin-top: 3mm; max-width: 120mm; }
+      .cover .meta {
+        margin-top: 14mm; padding-top: 5mm;
+        border-top: 1px solid var(--line);
+        font-size: 9.5pt; color: var(--muted);
+        display: flex; gap: 12mm; flex-wrap: wrap;
+      }
+      .cover .meta b { display: block; color: var(--ink); font-weight: 600; margin-bottom: 0.5mm; }
+
+      /* ── Sektioner ─────────────────────────────────────────────────────── */
+      section { page-break-before: always; }
+      section.flow { page-break-before: auto; }
+      .kicker {
+        font-size: 8.5pt; font-weight: 600; letter-spacing: 0.08em;
+        text-transform: uppercase; color: var(--primary); margin-bottom: 2mm;
+      }
+
+      /* ── Innehåll ──────────────────────────────────────────────────────── */
+      .toc { columns: 2; column-gap: 10mm; font-size: 10pt; }
+      .toc div { break-inside: avoid; margin-bottom: 2mm; }
+      .toc b { color: var(--primary); display: inline-block; width: 7mm; }
+
+      /* ── Byggstenar ────────────────────────────────────────────────────── */
+      figure { margin: 4mm 0 5mm; page-break-inside: avoid; }
+      figure img {
+        width: 100%; display: block;
+        border: 1px solid var(--line);
+        border-radius: 3mm;
+      }
+      figcaption { font-size: 8.5pt; color: var(--muted); margin-top: 2mm; }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 3mm;
+        padding: 4mm 5mm;
+        margin: 0 0 4mm;
+        page-break-inside: avoid;
+        background: #fff;
+      }
+      .card.tip { background: var(--primary-soft); border-color: #d7e3f7; }
+      .card.warn { background: var(--warning-soft); border-color: #f2e0bd; }
+      .card.good { background: var(--success-soft); border-color: #c9ecd8; }
+      .card h4 { margin: 0 0 1.5mm; font-size: 10.5pt; }
+
+      table { width: 100%; border-collapse: collapse; margin: 0 0 4mm; font-size: 9.5pt; page-break-inside: avoid; }
+      th, td { text-align: left; vertical-align: top; padding: 2.2mm 3mm; border-bottom: 1px solid var(--line); }
+      th { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+      td.center, th.center { text-align: center; }
+
+      ol.steps { list-style: none; padding: 0; counter-reset: step; }
+      ol.steps > li {
+        counter-increment: step;
+        padding-left: 9mm;
+        position: relative;
+        margin-bottom: 3mm;
+        page-break-inside: avoid;
+      }
+      ol.steps > li::before {
+        content: counter(step);
+        position: absolute; left: 0; top: 0;
+        width: 6mm; height: 6mm;
+        background: var(--primary); color: #fff;
+        border-radius: 50%;
+        font-size: 8.5pt; font-weight: 600;
+        display: grid; place-items: center;
+      }
+
+      .pill {
+        display: inline-block; padding: 0.4mm 2mm; border-radius: 3mm;
+        font-size: 8.5pt; font-weight: 600;
+      }
+      .pill.in { background: var(--success-soft); color: var(--success); }
+      .pill.out { background: #f3f4f6; color: #1f2937; }
+    </style>
+  </head>
+  <body>
+    <!-- ── Omslag ────────────────────────────────────────────────────────── -->
+    <div class="cover">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M5 12.5l4.2 4.2L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+      <h1>VisiTrack</h1>
+      <p class="lead">Manual för närvaro och tidrapportering för extern personal – kiosk, administration och rapporter.</p>
+      <div class="meta">
+        <div><b>Version</b>1.0 · september 2026</div>
+        <div><b>Adress</b>visitrack-six.vercel.app</div>
+        <div><b>Gäller</b>Administratörer, läsbehörighet och kioskansvariga</div>
+      </div>
+    </div>
+
+    <!-- ── Innehåll + översikt ───────────────────────────────────────────── -->
+    <section class="flow">
+      <div class="kicker">Innehåll</div>
+      <h2>Vad finns i manualen?</h2>
+      <div class="toc">
+        <div><b>1</b> Så fungerar VisiTrack</div>
+        <div><b>2</b> Vid kiosken – för personalen</div>
+        <div><b>3</b> Logga in i administrationen</div>
+        <div><b>4</b> Översikt: vilka är här nu?</div>
+        <div><b>5</b> Personal och QR-koder</div>
+        <div><b>6</b> Tidrapporter och bildverifiering</div>
+        <div><b>7</b> Export till Excel</div>
+        <div><b>8</b> Inställningar</div>
+        <div><b>9</b> Konton och behörigheter</div>
+        <div><b>10</b> Sätt upp kiosken</div>
+        <div><b>11</b> Integritet och GDPR</div>
+        <div><b>12</b> Felsökning</div>
+      </div>
+
+      <h3>1. Så fungerar VisiTrack</h3>
+      <p>
+        Extern personal – städ, hantverkare, kök – checkar in och ut vid entrén genom att visa sin
+        personliga QR-kod för en surfplatta. I samma ögonblick som koden läses tas en bild med
+        surfplattans kamera. Bilden sparas tillsammans med tiden, så att du i efterhand kan se
+        att rätt person använde koden.
+      </p>
+      <table>
+        <tr>
+          <th style="width: 32%">Del</th>
+          <th>Vad den används till</th>
+        </tr>
+        <tr>
+          <td><strong>Kiosken</strong><br /><code>/kiosk</code></td>
+          <td>Surfplattan vid entrén. Står alltid på och väntar på QR-koder. Ingen inloggning för personalen.</td>
+        </tr>
+        <tr>
+          <td><strong>Administrationen</strong><br /><code>/admin</code></td>
+          <td>Din del: närvaro i realtid, personal, QR-koder, tidrapporter, bilder och export.</td>
+        </tr>
+        <tr>
+          <td><strong>Databasen</strong></td>
+          <td>Allt sparas hos Supabase i Stockholm. Bilderna raderas automatiskt efter 90 dagar.</td>
+        </tr>
+      </table>
+
+      <div class="card tip">
+        <h4>Systemet avgör in eller ut – inte personen</h4>
+        <p style="margin: 0">
+          Samma QR-kod används för både in- och utcheckning. Databasen håller reda på vad som är
+          nästa steg och sätter tiden med serverns klocka. Ingen kan alltså checka in i efterhand
+          eller välja tid själv.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── 2. Kiosken ────────────────────────────────────────────────────── -->
+    <section>
+      <div class="kicker">Kapitel 2</div>
+      <h2>Vid kiosken – för personalen</h2>
+      <p>Så här ser skärmen ut när den väntar på nästa person:</p>
+      <figure>
+        <img src="img/kiosk-vilolage.png" alt="Kioskens startskärm med texten Välkommen och kamerabild" />
+        <figcaption>Kiosken i viloläge. Klockan syns uppe till höger och kameran visas som en spegelbild.</figcaption>
+      </figure>
+
+      <ol class="steps">
+        <li><strong>Håll upp QR-koden</strong> mot kameran, ungefär en armlängd bort.</li>
+        <li><strong>Vänta på den gröna bocken.</strong> Namnet och tiden visas i tre sekunder.</li>
+        <li><strong>Klart.</strong> Nästa gång samma kod visas registreras utcheckning i stället.</li>
+      </ol>
+
+      <figure>
+        <img src="img/kiosk-incheckad.png" alt="Grön bekräftelseskärm med namn och tid" />
+        <figcaption>Bekräftelsen visar namn, tid och den bild som just sparades.</figcaption>
+      </figure>
+
+      <h3>Andra besked som kan visas</h3>
+      <table>
+        <tr><th style="width: 34%">Besked</th><th>Betydelse</th></tr>
+        <tr><td><strong>Du är redan incheckad</strong></td><td>Koden visades igen inom en minut. Ingen ny registrering görs – det är helt i sin ordning.</td></tr>
+        <tr><td><strong>QR-koden känns inte igen</strong></td><td>Koden är ersatt eller hör inte till VisiTrack. Kontakta receptionen för en ny kod.</td></tr>
+        <tr><td><strong>Behörigheten är inaktiverad</strong></td><td>Personen är avstängd i systemet, t.ex. efter avslutat uppdrag.</td></tr>
+        <tr><td><strong>Något gick fel</strong></td><td>Nätverket svarade inte. Försök igen om en stund.</td></tr>
+      </table>
+
+      <div class="card warn">
+        <h4>Berätta om kameran</h4>
+        <p style="margin: 0">
+          Personalen ska veta att en bild tas vid varje registrering och varför. Det står även på
+          kioskskärmen. Se kapitel 11 om integritet.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── 3. Logga in ───────────────────────────────────────────────────── -->
+    <section>
+      <div class="kicker">Kapitel 3</div>
+      <h2>Logga in i administrationen</h2>
+      <p>
+        Gå till <code>visitrack-six.vercel.app/login</code> och logga in med din e-postadress.
+        Konton skapas av en administratör – det går inte att registrera sig själv.
+      </p>
+      <figure>
+        <img src="img/login.png" alt="Inloggningssidan" />
+        <figcaption>Inloggningen. Glömt lösenordet? Använd länken under rutan.</figcaption>
+      </figure>
+
+      <h3>Om du glömt lösenordet</h3>
+      <ol class="steps">
+        <li>Klicka på <strong>Glömt lösenord?</strong> och fyll i din e-postadress.</li>
+        <li>Öppna länken i mejlet. Den gäller i en timme.</li>
+        <li>Välj ett nytt lösenord – minst tio tecken.</li>
+      </ol>
+      <p>
+        Vill du byta lösenord medan du är inloggad klickar du på ditt namn längst ned till vänster
+        och väljer <strong>Byt lösenord</strong> under Mitt konto.
+      </p>
+    </section>
+
+    <!-- ── 4. Översikt ───────────────────────────────────────────────────── -->
+    <section>
+      <div class="kicker">Kapitel 4</div>
+      <h2>Översikt: vilka är här nu?</h2>
+      <figure>
+        <img src="img/oversikt.png" alt="Översiktssidan med nyckeltal och närvarolista" />
+        <figcaption>Översikten uppdateras automatiskt – du behöver aldrig ladda om sidan.</figcaption>
+      </figure>
+      <table>
+        <tr><th style="width: 38%">Ruta</th><th>Vad den betyder</th></tr>
+        <tr><td><strong>I byggnaden nu</strong></td><td>Personer vars senaste registrering är en incheckning.</td></tr>
+        <tr><td><strong>Incheckningar idag</strong></td><td>Antal incheckningar sedan midnatt.</td></tr>
+        <tr><td><strong>Aktiv personal</strong></td><td>Personer med giltig QR-kod, oavsett om de är på plats.</td></tr>
+        <tr><td><strong>Registreringar utan bild</strong></td><td>Bör vara 0. Ett högre tal kan betyda att kameran är skymd eller att nätet krånglar.</td></tr>
+      </table>
+      <p>
+        Märket <strong>Live</strong> visar att sidan har kontakt med databasen. Står det
+        <em>Frånkopplad</em> saknas nätverk – uppgifterna kan då vara några minuter gamla.
+      </p>
+    </section>
+
+    <!-- ── 5. Personal ───────────────────────────────────────────────────── -->
+    <section>
+      <div class="kicker">Kapitel 5</div>
+      <h2>Personal och QR-koder</h2>
+      <figure>
+        <img src="img/personal.png" alt="Personallistan" />
+        <figcaption>Personallistan. Sök på namn, företag eller roll och filtrera på aktiva eller inaktiva.</figcaption>
+      </figure>
+
+      <h3>Lägg till en person</h3>
+      <ol class="steps">
+        <li>Klicka på <strong>Lägg till person</strong>.</li>
+        <li>Fyll i namn, företag och roll. E-post är frivilligt.</li>
+        <li>Spara – QR-koden skapas automatiskt och visas direkt.</li>
+      </ol>
+
+      <figure>
+        <img src="img/qr-kod.png" alt="Dialogruta med QR-kod för en person" />
+        <figcaption>QR-koden kan laddas ner som bild eller skrivas ut som passerkort.</figcaption>
+      </figure>
+
+      <div class="card warn">
+        <h4>QR-koden är en nyckel</h4>
+        <p style="margin: 0">
+          Den som har koden kan checka in som personen. Dela den bara med personen själv. Om en kod
+          kommer bort: öppna koden och välj <strong>Skapa ny QR-kod</strong> – den gamla slutar
+          fungera omedelbart.
+        </p>
+      </div>
+
+      <h3>Passerkort att skriva ut</h3>
+      <p>
+        <strong>Skriv ut alla passerkort</strong> ger ett ark med kort i kreditkortsformat för all
+        aktiv personal. Klipp ut och plasta gärna in.
+      </p>
+      <figure>
+        <img src="img/passerkort.png" alt="Utskriftsvy med passerkort" />
+        <figcaption>Passerkort med QR-kod, namn, företag och roll.</figcaption>
+      </figure>
+
+      <h3>Avsluta eller ta bort</h3>
+      <ul>
+        <li><strong>Inaktivera</strong> när ett uppdrag är slut. QR-koden slutar fungera men historiken finns kvar. Detta är det normala.</li>
+        <li><strong>Ta bort</strong> går bara för personer som aldrig har registrerats – annars skyddas tidrapporterna.</li>
+      </ul>
+    </section>
+
+    <!-- ── 6. Tidrapporter ───────────────────────────────────────────────── -->
+    <section>
+      <div class="kicker">Kapitel 6</div>
+      <h2>Tidrapporter och bildverifiering</h2>
+      <figure>
+        <img src="img/tidrapporter.png" alt="Listan över tidrapporter" />
+        <figcaption>Varje rad är en in- eller utcheckning med bilden bredvid namnet.</figcaption>
+      </figure>
+      <p>
+        Välj period med <strong>Från</strong> och <strong>Till</strong>, och filtrera på person eller
+        typ. Klicka på en rad för att se hela bilden och detaljerna.
+      </p>
+
+      <figure>
+        <img src="img/tidrapport-detalj.png" alt="Detaljvy med bild, tid och källa" />
+        <figcaption>Detaljvyn visar hela kamerabilden, exakt tid med sekunder och vilken kiosk som användes.</figcaption>
+      </figure>
+
+      <h3>Rätta en registrering</h3>
+      <p>
+        Registreringar från kiosken kan inte ändras – det är själva poängen med dem som underlag.
+        Blev något fel gör du så här i stället:
+      </p>
+      <ul>
+        <li><strong>Makulera registrering</strong> med en orsak. Raden finns kvar i historiken men räknas inte i närvaro eller rapporter.</li>
+        <li><strong>Manuell registrering</strong> för glömda in- eller utcheckningar. Kräver en orsak och markeras tydligt som manuell – den saknar bild.</li>
+        <li><strong>Anteckning</strong> för en kommentar utan att ändra något annat.</li>
+      </ul>
+      <p>Systemet sparar vem som gjorde vad och när.</p>
+    </section>
+
+    <!-- ── 7. Export ─────────────────────────────────────────────────────── -->
+    <section class="flow">
+      <h3>7. Export till Excel</h3>
+      <p>Knappen <strong>Exportera</strong> följer de filter du valt och ger två filer att välja mellan:</p>
+      <table>
+        <tr><th style="width: 30%">Fil</th><th>Innehåll</th></tr>
+        <tr>
+          <td><strong>Arbetspass</strong></td>
+          <td>En rad per pass: datum, namn, företag, in, ut och arbetad tid – både som <code>7:30</code> och <code>7,50</code> timmar. Pass utan utcheckning markeras.</td>
+        </tr>
+        <tr>
+          <td><strong>Alla registreringar</strong></td>
+          <td>Varje händelse för sig, med källa, bildstatus, makuleringar och anteckningar. Används för granskning.</td>
+        </tr>
+      </table>
+      <p>
+        Filerna är anpassade för svenska Excel – de öppnas direkt med rätt kolumner och rätt
+        bokstäver (å, ä, ö).
+      </p>
+    </section>
+
+    <!-- ── 8. Inställningar ──────────────────────────────────────────────── -->
+    <section>
+      <div class="kicker">Kapitel 8</div>
+      <h2>Inställningar</h2>
+      <figure>
+        <img src="img/installningar.png" alt="Inställningssidan" />
+        <figcaption>Inställningarna gäller alla kiosker direkt när du sparar.</figcaption>
+      </figure>
+      <table>
+        <tr><th style="width: 34%">Inställning</th><th>Betydelse</th><th class="center" style="width: 16%">Standard</th></tr>
+        <tr>
+          <td><strong>Glömd utcheckning efter</strong></td>
+          <td>En incheckning som är äldre än så räknas inte längre som närvarande. Nästa skanning blir en ny incheckning.</td>
+          <td class="center">16 tim</td>
+        </tr>
+        <tr>
+          <td><strong>Ignorera upprepad skanning</strong></td>
+          <td>Hindrar att någon checkas in och direkt ut igen om koden hålls kvar framför kameran.</td>
+          <td class="center">60 sek</td>
+        </tr>
+        <tr>
+          <td><strong>Spara bilder i</strong></td>
+          <td>Efter denna tid raderas bilderna automatiskt. Tidrapporterna sparas.</td>
+          <td class="center">90 dagar</td>
+        </tr>
+      </table>
+      <p>
+        På samma sida ser du vilka kioskenheter och administratörer som finns. Nya konton skapas i
+        Supabase – se nästa kapitel.
+      </p>
+    </section>
+
+    <!-- ── 9. Konton ─────────────────────────────────────────────────────── -->
+    <section>
+      <div class="kicker">Kapitel 9</div>
+      <h2>Konton och behörigheter</h2>
+      <p>Alla har ett eget konto – inloggningar ska aldrig delas. Det finns tre behörigheter:</p>
+      <table>
+        <tr>
+          <th style="width: 40%">Kan</th>
+          <th class="center">Administratör</th>
+          <th class="center">Läsbehörighet</th>
+          <th class="center">Kiosk</th>
+        </tr>
+        <tr><td>Se närvaro, personal och tidrapporter</td><td class="center">Ja</td><td class="center">Ja</td><td class="center">Nej</td></tr>
+        <tr><td>Se bilderna</td><td class="center">Ja</td><td class="center">Ja</td><td class="center">Nej</td></tr>
+        <tr><td>Exportera till Excel</td><td class="center">Ja</td><td class="center">Ja</td><td class="center">Nej</td></tr>
+        <tr><td>Lägga till personal och QR-koder</td><td class="center">Ja</td><td class="center">Nej</td><td class="center">Nej</td></tr>
+        <tr><td>Makulera och registrera manuellt</td><td class="center">Ja</td><td class="center">Nej</td><td class="center">Nej</td></tr>
+        <tr><td>Ändra inställningar</td><td class="center">Ja</td><td class="center">Nej</td><td class="center">Nej</td></tr>
+        <tr><td>Registrera skanningar</td><td class="center">Nej</td><td class="center">Nej</td><td class="center">Ja</td></tr>
+      </table>
+
+      <div class="card tip">
+        <h4>Läsbehörighet passar rektor och samordnare</h4>
+        <p style="margin: 0">
+          Den ger full insyn i närvaro och rapporter men ingen möjlighet att ändra något – och
+          QR-koderna är aldrig synliga.
+        </p>
+      </div>
+
+      <h3>Lägga till en person i systemet</h3>
+      <ol class="steps">
+        <li>Öppna Supabase → <strong>Authentication → Users</strong> och välj <strong>Invite user</strong>.</li>
+        <li>Personen får ett mejl och väljer sitt eget lösenord.</li>
+        <li>Tilldela behörighet i <strong>SQL Editor</strong>:<br />
+          <code>select private.assign_role('namn@skola.se', 'admin', 'Förnamn Efternamn');</code><br />
+          Byt <code>admin</code> mot <code>viewer</code> för läsbehörighet.
+        </li>
+      </ol>
+      <p>Ett konto utan behörighet kan logga in men ser ingenting. Så tas åtkomst bort igen: ta bort raden eller kontot.</p>
+    </section>
+
+    <!-- ── 10. Kiosken ───────────────────────────────────────────────────── -->
+    <section>
+      <div class="kicker">Kapitel 10</div>
+      <h2>Sätt upp kiosken</h2>
+      <ol class="steps">
+        <li>Öppna <code>visitrack-six.vercel.app/kiosk</code> i Chrome, Edge eller Safari på surfplattan.</li>
+        <li>Logga in med kioskens eget konto (t.ex. <code>kiosk@visitrack.se</code>). Det görs en gång per enhet.</li>
+        <li>Tryck <strong>Starta kiosken</strong> och tillåt kameran när webbläsaren frågar.</li>
+        <li>Ställ in att skärmen aldrig släcks och att plattan alltid är i laddaren.</li>
+      </ol>
+      <p>
+        Efter omstart eller strömavbrott startar kiosken själv igen – ingen behöver logga in på nytt.
+        Placera plattan så att ansiktet syns i bild och undvik motljus från fönster bakom personen.
+      </p>
+
+      <div class="card">
+        <h4>Dold meny för personalen</h4>
+        <p style="margin: 0">
+          Håll fingret på VisiTrack-loggan uppe till vänster i två sekunder. Där kan du starta om
+          kameran, växla helskärm eller logga ut enheten. Menyn är dold så att besökare inte råkar
+          öppna den.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── 11. Integritet ────────────────────────────────────────────────── -->
+    <section>
+      <div class="kicker">Kapitel 11</div>
+      <h2>Integritet och GDPR</h2>
+      <p>
+        Bilderna är personuppgifter. VisiTrack är byggt för att samla in så lite som möjligt och
+        radera automatiskt, men rutinerna runt omkring är skolans ansvar.
+      </p>
+      <table>
+        <tr><th style="width: 34%">Område</th><th>Så fungerar det</th></tr>
+        <tr><td><strong>Var lagras uppgifterna?</strong></td><td>Databas och bilder hos Supabase i Stockholm. Webbplatsen körs via Vercel i Stockholm. Inga uppgifter lämnar EU.</td></tr>
+        <tr><td><strong>Hur länge?</strong></td><td>Bilderna raderas automatiskt efter 90 dagar (kan ändras i Inställningar). Tidrapporterna sparas tills ni bestämmer annat.</td></tr>
+        <tr><td><strong>Vem kan se bilderna?</strong></td><td>Endast inloggade med administratörs- eller läsbehörighet. Bilderna ligger i ett privat utrymme och visas via länkar som slutar gälla efter tio minuter.</td></tr>
+        <tr><td><strong>Vad sparas?</strong></td><td>Namn, företag, roll, tider och en lågupplöst bild per registrering. Ingen ansiktsigenkänning och ingen spårning i övrigt.</td></tr>
+      </table>
+      <h3>Att göra på skolan</h3>
+      <ul>
+        <li>Informera personalen – gärna skriftligt – om att bild tas, varför och hur länge den sparas.</li>
+        <li>Sätt upp en kort skylt vid kiosken.</li>
+        <li>Teckna personuppgiftsbiträdesavtal (DPA) med Supabase och Vercel.</li>
+        <li>Bestäm hur länge tidrapporterna ska sparas tillsammans med er dataskyddsansvarige.</li>
+      </ul>
+    </section>
+
+    <!-- ── 12. Felsökning ────────────────────────────────────────────────── -->
+    <section>
+      <div class="kicker">Kapitel 12</div>
+      <h2>Felsökning</h2>
+      <table>
+        <tr><th style="width: 38%">Det här händer</th><th>Gör så här</th></tr>
+        <tr>
+          <td><strong>”Kameran är blockerad”</strong></td>
+          <td>Tillåt kameran för sidan i webbläsarens inställningar och tryck <strong>Försök igen</strong>.</td>
+        </tr>
+        <tr>
+          <td><strong>”Ingen kamera hittades”</strong></td>
+          <td>Kontrollera att kameran inte är övertäckt eller används av ett annat program. Starta om plattan.</td>
+        </tr>
+        <tr>
+          <td><strong>Koden läses inte av</strong></td>
+          <td>Torka av kameralinsen, undvik motljus och håll koden stilla en armlängd bort. Skrynkliga utskrifter kan behöva ersättas.</td>
+        </tr>
+        <tr>
+          <td><strong>”Ingen anslutning”</strong></td>
+          <td>Kiosken saknar nät. Registreringar kan inte sparas under tiden – kontrollera wifi.</td>
+        </tr>
+        <tr>
+          <td><strong>Någon glömde checka ut</strong></td>
+          <td>Efter 16 timmar räknas personen inte längre som närvarande. Lägg in en manuell utcheckning med orsak om tiden ska stämma.</td>
+        </tr>
+        <tr>
+          <td><strong>Registreringar utan bild</strong></td>
+          <td>Titta på siffran i Översikt. Är den hög: kontrollera kamerans sikt och nätverket vid entrén.</td>
+        </tr>
+        <tr>
+          <td><strong>Fel person på bilden</strong></td>
+          <td>Makulera registreringen med orsak, och skapa en ny QR-kod till personen vars kod använts.</td>
+        </tr>
+        <tr>
+          <td><strong>Inget mejl vid lösenordsbyte</strong></td>
+          <td>Kontrollera skräpposten. Kommer inget: en administratör kan sätta ett tillfälligt lösenord i Supabase.</td>
+        </tr>
+      </table>
+
+      <div class="card good">
+        <h4>Snabbkoll när något känns fel</h4>
+        <p style="margin: 0">
+          Öppna Översikt: visar <strong>Live</strong> och rimliga siffror fungerar kedjan hela vägen
+          från kiosken till databasen.
+        </p>
+      </div>
+    </section>
+  </body>
+</html>

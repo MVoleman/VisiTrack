@@ -11,7 +11,9 @@
     "db:types": "supabase gen types typescript --local --schema public > src/lib/supabase/database.types.ts",
     "db:seed": "node scripts/seed-local.mjs",
     "predev": "node scripts/copy-zxing-wasm.mjs",
-    "prebuild": "node scripts/copy-zxing-wasm.mjs"
+    "prebuild": "node scripts/copy-zxing-wasm.mjs",
+    "manual:shots": "node scripts/manual-screenshots.mjs",
+    "manual:pdf": "node scripts/manual-pdf.mjs"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

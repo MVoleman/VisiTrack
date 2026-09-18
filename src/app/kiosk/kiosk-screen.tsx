@@ -227,14 +227,14 @@ export function KioskScreen({
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-8 px-8 py-6 landscape:lg:flex-row landscape:lg:gap-16 lg:px-12">
-        <section className="shrink-0 text-center landscape:lg:flex-1 landscape:lg:text-left">
-          <h1 className="text-5xl leading-none font-semibold tracking-tight sm:text-6xl lg:text-7xl xl:text-8xl">Välkommen</h1>
-          <p className="mt-4 text-xl text-muted-foreground text-balance sm:mt-6 sm:text-2xl lg:text-3xl">
+        <section className="min-w-0 shrink-0 text-center landscape:lg:flex-1 landscape:lg:shrink landscape:lg:text-left">
+          <h1 className="text-5xl leading-none font-semibold tracking-tight text-balance sm:text-6xl xl:text-7xl 2xl:text-8xl">Välkommen</h1>
+          <p className="mt-4 text-xl text-muted-foreground text-balance sm:mt-6 sm:text-2xl xl:text-3xl">
             Visa din QR-kod för kameran för att checka in eller ut.
           </p>
         </section>
 
-        <section className="flex min-h-0 w-full flex-1 items-center justify-center landscape:lg:h-full landscape:lg:max-h-[72vh] landscape:lg:flex-[1.1]">
+        <section className="flex min-h-0 w-full min-w-0 flex-1 items-center justify-center landscape:lg:h-full landscape:lg:max-h-[72vh] landscape:lg:flex-[1.1]">
           {/* Fills the available height, keeps 4:3 where possible and never overflows the screen. */}
           <div className="relative aspect-[4/3] h-full max-h-full max-w-full overflow-hidden rounded-[2rem] bg-gray-100 shadow-lifted ring-1 ring-foreground/[0.06]">
             <video

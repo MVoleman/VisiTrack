@@ -13,6 +13,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The kiosk runs full-screen on a shared device; the dev overlay only gets in the way.
+  devIndicators: false,
   // Pin the workspace root so stray lockfiles in parent folders are never picked up.
   turbopack: { root: import.meta.dirname },
   async headers() {
