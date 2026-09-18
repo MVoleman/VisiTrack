@@ -49,6 +49,9 @@ export default async function LogsPage({ searchParams }: PageProps<"/admin/logs"
     kioskName: log.app_users?.display_name ?? null,
     clientCapturedAt: log.client_captured_at,
     // inet comes back as unknown from the generated types, and as "1.2.3.4/32" over the wire.
+    // Hiding it from viewers is presentation, not a boundary: RLS is row-level, so a viewer
+    // who queries the API directly can read the column. It is the kiosk's own address, not a
+    // worker's, so that is acceptable - but don't treat this line as access control.
     kioskIp: canManage && log.kiosk_ip ? String(log.kiosk_ip).replace(/\/(32|128)$/, "") : null,
     snapshotState: snapshotState(log),
     snapshotUrl: snapshotUrl(log),
