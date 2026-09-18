@@ -4,7 +4,7 @@ Time & attendance for external school staff. Staff check in and out at an
 entrance kiosk by showing a personal QR code; the kiosk captures a webcam
 snapshot of the exact frame the code was read from, so admins can verify identity.
 
-**Production:** https://visitrack-six.vercel.app · Supabase (Stockholm, `eu-north-1`) · Vercel functions in `arn1`
+**Production:** https://visitrack.se · Supabase (Stockholm, `eu-north-1`) · Vercel functions in `arn1`
 
 **Stack:** Next.js 16 (App Router, Turbopack) · Tailwind CSS v4 · shadcn/ui (Radix) ·
 Supabase (Postgres, Auth, Storage, Realtime) · deployed on Vercel.
@@ -49,7 +49,7 @@ Create `.env.local` from `.env.example` with the values printed by `supabase sta
 ## Setting up a kiosk
 
 1. Create a kiosk account in Supabase and give it the `kiosk` role (see [supabase/README.md](supabase/README.md)).
-2. On the tablet, open `https://<your-domain>/kiosk` in Chrome (or Edge/Safari) and sign in with the kiosk account.
+2. On the tablet, open `https://visitrack.se/kiosk` in Chrome (or Edge/Safari) and sign in with the kiosk account.
 3. Tap **Starta kiosken** and allow the camera. After that the kiosk resumes by itself after reloads or restarts.
 4. Recommended: pin the page in kiosk/app mode and disable screen sleep in the device settings.
 

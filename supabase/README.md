@@ -135,8 +135,8 @@ The app has "forgot password" (`/login/glomt-losenord`) and "choose a new passwo
 exchanges the token and forwards the person.
 
 1. **Authentication → URL Configuration**
-   - *Site URL*: your production URL, e.g. `https://visitrack.vercel.app`.
-   - *Redirect URLs*: add `https://<your-domain>/auth/confirm` (and `http://localhost:3000/auth/confirm` for local work).
+   - *Site URL*: `https://www.visitrack.se` (the apex redirects there).
+   - *Redirect URLs*: add `https://www.visitrack.se/auth/confirm` and `https://visitrack.se/auth/confirm` (plus `http://localhost:3000/auth/confirm` for local work).
 2. **Custom SMTP** (Project Settings → Authentication → SMTP Settings). Supabase's built-in sender is
    rate-limited and explicitly not for production. [Resend](https://resend.com) has an EU region and a
    free tier that covers a school's volume; any SMTP provider works.
