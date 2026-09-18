@@ -64,11 +64,39 @@ export async function updatePassword(_prev: ActionResult | null, formData: FormD
 
   const { error } = await supabase.auth.updateUser({ password });
   if (error) {
-    console.error("updatePassword failed", { status: error.status, code: error.code });
-    if (error.code === "same_password") return { ok: false, error: "Välj ett lösenord du inte redan använder." };
-    if (error.code === "weak_password") return { ok: false, error: "Lösenordet är för svagt. Välj ett längre lösenord." };
-    return { ok: false, error: "Lösenordet kunde inte sparas. Försök igen." };
+    console.error("updatePassword failed", { status: error.status, code: error.code, message: error.message });
+    return { ok: false, error: passwordErrorMessage(error) };
   }
 
   return { ok: true, message: "Lösenordet är uppdaterat." };
+}
+
+/**
+ * Turns a Supabase auth error into something the person can act on. Anything
+ * unrecognised keeps its code, so a failure can be diagnosed from a screenshot
+ * instead of server logs.
+ */
+function passwordErrorMessage(error: { code?: string; status?: number; message?: string }) {
+  switch (error.code) {
+    case "same_password":
+      return "Välj ett lösenord du inte redan använder.";
+    case "weak_password":
+      return "Lösenordet uppfyller inte projektets krav. Prova ett längre lösenord med både bokstäver och siffror.";
+    case "reauthentication_needed":
+    case "reauthentication_not_valid":
+      // The project has "Secure password change" enabled, which requires a
+      // freshly confirmed login before the password may be replaced.
+      return "Av säkerhetsskäl måste inloggningen bekräftas på nytt. Logga ut, logga in igen och byt lösenord direkt efteråt.";
+    case "session_not_found":
+    case "session_expired":
+      return "Din session har gått ut. Logga in igen och försök på nytt.";
+    case "over_request_rate_limit":
+    case "over_email_send_rate_limit":
+      return "För många försök. Vänta en stund och försök igen.";
+    default:
+      if (error.status === 401 || error.status === 403) {
+        return "Behörigheten saknas för att byta lösenord här. Logga ut och in igen.";
+      }
+      return `Lösenordet kunde inte sparas${error.code ? ` (felkod: ${error.code})` : ""}. Försök igen.`;
+  }
 }
