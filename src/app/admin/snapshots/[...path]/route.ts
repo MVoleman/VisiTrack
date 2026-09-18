@@ -35,10 +35,13 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/admin/snaps
 
   if (!row) return new Response("Not found", { status: 404 });
 
-  // One neutral body for every caller and every cause. The status code is what
-  // carries the difference, so the server log and a viewer's screen never
-  // disagree about what a viewer is allowed to know.
-  const unavailable = (status: number) => new Response("Bilden kan inte visas", { status });
+  // One neutral body for every caller and every cause: the status code carries
+  // the difference, so the server log and a viewer's screen never disagree
+  // about what a viewer is allowed to know. no-store on every branch, because
+  // a 410 without it is cached by the browser indefinitely - the photo would
+  // stay "gone" on that machine long after the cause was fixed.
+  const unavailable = (status: number) =>
+    new Response("Bilden kan inte visas", { status, headers: { "Cache-Control": "private, no-store" } });
 
   const admin = createAdminClient();
   if (!admin) {
@@ -53,8 +56,11 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/admin/snaps
     // loss to report. Asking for the bucket separates them - it succeeds only
     // if the credentials are good.
     const { error: bucketError } = await admin.storage.getBucket(SNAPSHOT_BUCKET);
-    if (bucketError) {
-      console.error("snapshot-storage-unavailable:", bucketError.message);
+    const missing = String((error as { statusCode?: string } | null)?.statusCode) === "404";
+    if (bucketError || !missing) {
+      // Timeout, 5xx, a bad key: the photo may well be there. Saying "gone"
+      // would raise a data-loss alarm for an outage.
+      console.error("snapshot-storage-unavailable:", bucketError?.message ?? error?.message);
       return unavailable(503);
     }
 

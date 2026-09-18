@@ -2,15 +2,23 @@
 -- VisiTrack — initial database schema
 -- =============================================================================
 --
--- Run once on a fresh Supabase project (EU region), either with
--- `supabase db push` or by pasting this file into Dashboard → SQL Editor.
--- Post-install steps (admin + kiosk accounts, auth settings) are described in
--- supabase/README.md.
+-- Applied with `supabase db push`, as the first of several migrations. This
+-- file alone is NOT the security model: later migrations add the viewer role,
+-- move QR tokens and kiosk addresses into admin-only tables, close snapshot
+-- reads entirely and make snapshot paths unguessable. Do not install a project
+-- by pasting this one file. Post-install steps (accounts, auth settings) are
+-- described in supabase/README.md.
+--
+-- The description below is what was true when this migration was written; the
+-- two notes marked SUPERSEDED were changed later and are corrected here so that
+-- nobody reads the file as current.
 --
 -- Security model
 -- --------------
 --   * Every authenticated account has exactly one role in public.app_users:
 --       admin — manages workers, reads logs and snapshots.
+--       viewer — SUPERSEDED (20260918090000/090100): read-only access to
+--               everything except QR tokens and kiosk addresses.
 --       kiosk — an unattended entrance device. It can NOT read any table. It
 --               may only call kiosk_register_scan() / kiosk_confirm_snapshot()
 --               and upload the one snapshot belonging to its own fresh scan.
@@ -19,8 +27,12 @@
 --     the database clock — a kiosk cannot backdate or pick the event type.
 --   * Kiosk records are immutable. Admins correct mistakes by voiding a record
 --     (with a reason) and adding a manual entry, so the audit trail is kept.
---   * Snapshots live in a private bucket, are viewed through short-lived signed
---     URLs, and are purged after app_settings.snapshot_retention_days (GDPR).
+--   * Snapshots live in a private bucket and are purged after
+--     app_settings.snapshot_retention_days (GDPR). SUPERSEDED (20260918140000):
+--     they are no longer viewed through signed URLs. No role may read the
+--     bucket at all; /admin/snapshots streams each image after checking the
+--     caller's role, because a signed URL can be minted with any expiry and
+--     nothing can revoke it afterwards.
 -- =============================================================================
 
 

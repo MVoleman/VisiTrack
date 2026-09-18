@@ -1,8 +1,9 @@
 # Supabase setup
 
-Everything VisiTrack needs in Supabase is in a single migration:
-[`migrations/20260917120000_initial_schema.sql`](migrations/20260917120000_initial_schema.sql).
-It is commented section by section; this page covers installation and the model at a glance.
+Everything VisiTrack needs in Supabase is in [`migrations/`](migrations), applied in filename order.
+The first file builds the schema; the ones after it are hardening steps, and a project missing any of
+them is missing part of the security model. Each file is commented section by section; this page
+covers installation and the model at a glance.
 
 ## 1. Create the project
 
@@ -13,16 +14,15 @@ It is commented section by section; this page covers installation and the model 
    - Turn **off** *Allow new users to sign up*. Accounts are only created by an admin.
    - Keep the *Email* provider enabled.
 
-## 2. Run the migration
-
-Either paste the migration file into **SQL Editor → New query** and run it, or use the CLI:
+## 2. Apply the migrations
 
 ```bash
 supabase link --project-ref <your-project-ref>
 supabase db push
 ```
 
-Run it once, on a fresh project.
+Use the CLI, not the SQL Editor: the files must be applied in order and `db push` is what keeps track
+of which ones a project already has. Running it again later applies only what is new.
 
 ## 3. Create accounts
 
@@ -85,6 +85,7 @@ daily purge job cannot delete anything either.
 | `time_logs`               | table    | Append-only check-in/check-out events with snapshot reference and audit  |
 | `kiosk_scan_sources`      | table    | Address each scan came from. Admin-only: RLS filters rows, not columns   |
 | `kiosk_scan_denials`      | table    | Scans refused by the network allowlist, as evidence. Admin-only          |
+| `kiosk_network_allowlist` | table    | Networks a kiosk may scan from. Empty = anywhere. Admin-only            |
 | `app_settings`            | table    | Single row: time zone, presence window, duplicate window, retention days |
 | `current_presence`        | view     | Who is in the building right now                                         |
 | `work_sessions`           | view     | Check-in → check-out pairs with duration (reports, CSV export)           |
@@ -97,10 +98,10 @@ QR decoded + frame captured (same instant, in the browser)
         │
         ▼
 rpc kiosk_register_scan(token, client_captured_at)
-        │  status: ok | duplicate | inactive_worker | invalid_token
+        │  status: ok | duplicate | inactive_worker | invalid_token | blocked_network
         │  DB decides check_in / check_out and stamps server time
         ▼
-show ✓ + name  ──►  upload snapshot to snapshots/<yyyy>/<mm>/<time_log_id>.jpg
+show ✓ + name  ──►  upload snapshot to snapshots/<yyyy>/<mm>/<time_log_id>-<32 hex>.jpg
                           │
                           ▼
                    rpc kiosk_confirm_snapshot(time_log_id)
@@ -110,7 +111,7 @@ show ✓ + name  ──►  upload snapshot to snapshots/<yyyy>/<mm>/<time_log_i
 
 | Rule                                                                                  | How                                             |
 | ------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Only admins read or manage workers, logs, settings and snapshots                      | RLS + `private.is_admin()`                      |
+| Only admins manage workers, logs and settings; admins and viewers read them          | RLS + `private.is_admin()` / `private.can_read()` |
 | Kiosks cannot read any table; they can only register scans                            | RPCs with `security definer`, no table policies |
 | Check-in vs. check-out and the timestamp are decided server-side                      | `kiosk_register_scan`                           |
 | Re-scanning the same badge within 60 s does nothing                                   | `duplicate_scan_seconds`                        |
@@ -145,11 +146,12 @@ Every scan records the address it came from (visible to admins under a time log,
 statement — after which a stolen kiosk session is useless from anywhere else:
 
 ```sql
-update public.app_settings set kiosk_ip_allowlist = '{203.0.113.4/32}';   -- your address
-update public.app_settings set kiosk_ip_allowlist = '{}';                 -- turn enforcement off
+insert into public.kiosk_network_allowlist (net) values ('203.0.113.4/32');   -- your address
+delete from public.kiosk_network_allowlist;                                   -- turn enforcement off
 ```
 
-The list is empty by default, so a wrong guess can never lock the entrance. Scans from outside
+The table is empty by default, so a wrong guess can never lock the entrance. Like the recorded
+addresses, it is readable by admins only - it names the school's own networks. Scans from outside
 the list are refused with a clear message on the kiosk, and the attempt is recorded in
 `public.kiosk_scan_denials` with its address and reason. The address is
 read from the last hop of `X-Forwarded-For`, which a client cannot forge past the proxy.
@@ -185,17 +187,20 @@ is consulted. Nothing revokes it. Two things follow:
 - No session can create one any more: there is no SELECT policy on `storage.objects` for any
   browser-facing role.
 - Links created **before** that change keep working until they expire. The admin pages minted a
-  10-minute one per image, but anyone signed in could mint one with any expiry.
+  10-minute one per image, but anyone with admin or viewer access could mint one with any expiry.
 
 To retire those links, move the photos they name:
 
 ```bash
-npm run snapshots:rekey -- --dry-run   # list what would move
-npm run snapshots:rekey                # move them
+npm run snapshots:rekey                 # dry run: lists what would move
+npm run snapshots:rekey -- --apply      # move them
 ```
 
-Every photo moves to a path carrying 128 bits of randomness, and the old link then answers
-`NoSuchKey` for good - nothing can legitimately reoccupy the old path. Run it if a link may have
+Every photo that is actually in the bucket moves to a path carrying 128 bits of randomness, and the
+old link then answers `NoSuchKey` for good - nothing can legitimately reoccupy the old path. A log
+whose upload never arrived has no photo to retire, and the run says how many of those it found.
+Moving is opt-in (`--apply`) so a mistyped flag cannot start it, and an interrupted run is repaired
+by the next one: the new path begins with the time log's id, so a photo left behind is found again. Run it if a link may have
 been shared, if `SUPABASE_SECRET_KEY` may have leaked (rotate the key first), or when someone with
 admin or viewer access leaves.
 
@@ -227,5 +232,5 @@ npm run test:db
 
 Runs the migrations against an in-memory Postgres (PGlite) with stand-ins for Supabase's `auth` and
 `storage` schemas and checks RLS, grants, the scan state machine, upload rules, audit trail and
-retention (79 assertions). It does not cover Supabase-specific runtime behaviour (Storage API,
+retention. It does not cover Supabase-specific runtime behaviour (Storage API,
 Realtime) or true concurrency; those are verified against a live project.

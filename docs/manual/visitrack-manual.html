@@ -554,7 +554,7 @@
         </tr>
         <tr>
           <td><strong>”Bilden kunde inte hämtas”</strong></td>
-          <td>Bilden finns men servern når den inte – oftast fel eller saknad nyckel efter en flytt eller nyckelbyte. Det är <em>inte</em> samma sak som ”Bilden har raderats enligt lagringspolicyn”, som betyder att bilden är borta för gott. Kontakta den som förvaltar systemet; felet står i loggen som <code>snapshot-storage-unavailable</code> eller <code>snapshot-object-missing</code>.</td>
+          <td>Bilden kunde inte hämtas – det är <em>inte</em> samma sak som ”Bilden har raderats enligt lagringspolicyn”, som betyder att bilden är borta enligt plan. Kontakta den som förvaltar systemet och be om loggraden: <code>snapshot-storage-unavailable</code> betyder att bilden finns men servern inte når lagringen, oftast fel eller saknad nyckel efter en flytt eller ett nyckelbyte. <code>snapshot-object-missing</code> betyder att bilden är borta ur lagringen trots att registreringen säger att den fanns – det bör utredas.</td>
         </tr>
         <tr>
           <td><strong>Fel person på bilden</strong></td>

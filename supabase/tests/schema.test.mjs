@@ -322,9 +322,19 @@ await expectError("kiosk cannot mark purged", () => as(KIOSK, () => q(`select pu
 await ageLogs(worker.id, "40 days");
 await db.exec(`set role service_role`);
 const due = await q(`select * from public.snapshots_due_for_purge(100)`);
-check("purge lists old snapshots incl. voided scans, not manual entries", due.length === 4 && due.every((d) => d.snapshot_path), JSON.stringify(due));
+const old40 = await q(`select id, snapshot_uploaded_at from public.time_logs
+                       where snapshot_path is not null and snapshot_purged_at is null
+                         and occurred_at < now() - interval '35 days'`);
+const uploaded = old40.filter((r) => r.snapshot_uploaded_at);
+const neverUploaded = old40.filter((r) => !r.snapshot_uploaded_at);
+check("purge lists old snapshots incl. voided scans, not manual entries",
+  due.length > 0 && due.length === uploaded.length && due.every((d) => d.snapshot_path), JSON.stringify(due));
+// Marking these would tell the admin a photo was deleted under the retention
+// policy when the kiosk never uploaded one.
+check("a reserved path whose upload never arrived is never due for purge",
+  neverUploaded.length > 0 && !due.some((d) => neverUploaded.some((r) => r.id === d.time_log_id)));
 const [{ mark_snapshots_purged: purgedCount }] = await q(`select public.mark_snapshots_purged($1::uuid[])`, [due.map((d) => d.time_log_id)]);
-check("mark purged", purgedCount === 4);
+check("mark purged", purgedCount === due.length);
 check("nothing left to purge", (await q(`select * from public.snapshots_due_for_purge()`)).length === 0);
 // Server-side tooling (secret key) can manage workers without going through RLS.
 await db.exec(`set role service_role`);
@@ -376,7 +386,7 @@ const openScan = await as(KIOSK, async () => {
 check("empty allowlist accepts any network", openScan[0].status === "ok");
 
 // Turn enforcement on.
-await db.exec(`update public.app_settings set kiosk_ip_allowlist = '{203.0.113.0/24}';`);
+await db.exec(`insert into public.kiosk_network_allowlist (net) values ('203.0.113.0/24') on conflict do nothing;`);
 const [w7] = await as(ADMIN, () => q(`insert into public.workers (full_name, company, role) values ('Nät Test 3','N','N') returning *`));
 w7.qr_token = await badgeToken(w7.id);
 
@@ -406,7 +416,7 @@ const noHeaders = await as(KIOSK, async () => {
   return q(`select * from public.kiosk_register_scan($1)`, [w6.qr_token]);
 });
 check("unknown address is refused while enforcement is on", noHeaders[0].status === "blocked_network");
-await db.exec(`update public.app_settings set kiosk_ip_allowlist = '{}';`);
+await db.exec(`delete from public.kiosk_network_allowlist;`);
 await withHeaders(null);
 
 // ---------------------------------------------------------------------------
@@ -434,7 +444,7 @@ check("unknown address is refused when a list is set",
 // ---------------------------------------------------------------------------
 // A refused scan must leave evidence
 // ---------------------------------------------------------------------------
-await db.exec(`update public.app_settings set kiosk_ip_allowlist = '{203.0.113.0/24}';`);
+await db.exec(`insert into public.kiosk_network_allowlist (net) values ('203.0.113.0/24') on conflict do nothing;`);
 const [w8] = await as(ADMIN, () => q(`insert into public.workers (full_name, company, role) values ('Spår Test','S','S') returning *`));
 w8.qr_token = await badgeToken(w8.id);
 
@@ -474,7 +484,20 @@ await expectError("nobody can forge a kiosk address",
 await expectError("nobody can rewrite a kiosk address",
   () => as(ADMIN, () => q(`update public.kiosk_scan_sources set kiosk_ip = '1.2.3.4'`)), /permission denied/);
 
-await db.exec(`update public.app_settings set kiosk_ip_allowlist = '{}';`);
+await db.exec(`insert into public.kiosk_network_allowlist (net) values ('203.0.113.0/24') on conflict do nothing;`);
+check("admin reads the allowed networks",
+  (await as(ADMIN, () => q(`select * from public.kiosk_network_allowlist`))).length === 1);
+check("viewer CANNOT read the allowed networks",
+  (await as(VIEWER, () => q(`select * from public.kiosk_network_allowlist`))).length === 0);
+check("kiosk CANNOT read the allowed networks",
+  (await as(KIOSK, () => q(`select * from public.kiosk_network_allowlist`))).length === 0);
+await expectError("nobody can add an allowed network over the API",
+  () => as(ADMIN, () => q(`insert into public.kiosk_network_allowlist (net) values ('10.0.0.0/8')`)), /permission denied/);
+await expectError("the allowlist is not a column on app_settings any more",
+  () => q(`select kiosk_ip_allowlist from public.app_settings`), /does not exist/i);
+await db.exec(`delete from public.kiosk_network_allowlist;`);
+
+await db.exec(`delete from public.kiosk_network_allowlist;`);
 await withHeaders(null);
 
 // ---------------------------------------------------------------------------

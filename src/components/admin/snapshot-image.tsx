@@ -23,12 +23,14 @@ export function SnapshotImage({
   className?: string;
   fallback: React.ReactNode;
 }) {
-  const [failed, setFailed] = useState(false);
+  // Keyed by URL: a table row that is reused for a different record must not
+  // inherit the previous photo's failure (or hide a new one behind a success).
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
-  if (failed) return <>{fallback}</>;
+  if (failedSrc === src) return <>{fallback}</>;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} className={className} loading="lazy" onError={() => setFailed(true)} />
+    <img src={src} alt={alt} className={className} loading="lazy" onError={() => setFailedSrc(src)} />
   );
 }

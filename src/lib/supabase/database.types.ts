@@ -13,7 +13,6 @@ export type Database = {
         Row: {
           duplicate_scan_seconds: number
           id: boolean
-          kiosk_ip_allowlist: unknown[]
           presence_window_hours: number
           snapshot_retention_days: number
           time_zone: string
@@ -22,7 +21,6 @@ export type Database = {
         Insert: {
           duplicate_scan_seconds?: number
           id?: boolean
-          kiosk_ip_allowlist?: unknown[]
           presence_window_hours?: number
           snapshot_retention_days?: number
           time_zone?: string
@@ -31,7 +29,6 @@ export type Database = {
         Update: {
           duplicate_scan_seconds?: number
           id?: boolean
-          kiosk_ip_allowlist?: unknown[]
           presence_window_hours?: number
           snapshot_retention_days?: number
           time_zone?: string
@@ -57,6 +54,24 @@ export type Database = {
           display_name?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      kiosk_network_allowlist: {
+        Row: {
+          added_at: string
+          net: unknown
+          note: string | null
+        }
+        Insert: {
+          added_at?: string
+          net: unknown
+          note?: string | null
+        }
+        Update: {
+          added_at?: string
+          net?: unknown
+          note?: string | null
         }
         Relationships: []
       }

@@ -17,6 +17,11 @@ export default async function SettingsPage() {
     .select("id", { count: "exact", head: true })
     .gte("occurred_at", new Date(getRequestTime() - 7 * 24 * 60 * 60 * 1000).toISOString());
 
+  const { data: networks } = await supabase
+    .from("kiosk_network_allowlist")
+    .select("net")
+    .order("net");
+
   const { data: accounts } = await supabase
     .from("app_users")
     .select("user_id, role, display_name, created_at")
@@ -26,8 +31,7 @@ export default async function SettingsPage() {
   const kiosks = (accounts ?? []).filter((a) => a.role === "kiosk");
   const admins = (accounts ?? []).filter((a) => a.role === "admin");
 
-  // NULL entries are ignored by private.ip_allowed, so they must not look active here either.
-  const allowlist = (settings.kiosk_ip_allowlist ?? []).filter((net) => net != null).map(String);
+  const allowlist = (networks ?? []).map((n) => String(n.net));
 
   return (
     <>
@@ -90,7 +94,7 @@ export default async function SettingsPage() {
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
                 Ändras i Supabase SQL Editor:{" "}
                 <code className="rounded bg-muted px-1 py-0.5">
-                  update public.app_settings set kiosk_ip_allowlist = &#39;&#123;203.0.113.4/32&#125;&#39;;
+                  insert into public.kiosk_network_allowlist (net) values (&#39;203.0.113.4/32&#39;);
                 </code>
               </p>
             </CardContent>

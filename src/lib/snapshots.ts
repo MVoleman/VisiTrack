@@ -21,8 +21,11 @@ export const SNAPSHOT_PATH_PATTERN =
 
 export function snapshotState(row: SnapshotFields): SnapshotState {
   if (!row.snapshot_path) return "none";
-  if (row.snapshot_purged_at) return "purged";
+  // Order matters: a scan whose upload never arrived must read as "missing"
+  // even after the purge job has stamped it, or the UI would tell a worker
+  // their photo was deleted under the retention policy when none ever existed.
   if (!row.snapshot_uploaded_at) return "missing";
+  if (row.snapshot_purged_at) return "purged";
   return "available";
 }
 
