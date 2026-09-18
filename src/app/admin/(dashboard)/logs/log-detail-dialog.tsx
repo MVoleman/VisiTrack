@@ -94,6 +94,12 @@ function DetailBody({ log, timeZone, canManage }: { log: LogRow; timeZone: strin
           </dd>
           <dt className="text-muted-foreground">Källa</dt>
           <dd>{log.source === "kiosk" ? (log.kioskName ?? "Kiosk") : "Manuell registrering"}</dd>
+          {log.kioskIp && (
+            <>
+              <dt className="text-muted-foreground">Nätverk</dt>
+              <dd className="tabular-nums">{log.kioskIp}</dd>
+            </>
+          )}
           {clockSkewSeconds !== null && Math.abs(clockSkewSeconds) >= 5 && (
             <>
               <dt className="text-muted-foreground">Kioskens klocka</dt>

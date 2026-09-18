@@ -9,7 +9,7 @@ import { SnapshotThumb } from "@/components/admin/snapshot-thumb";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { getRequestTime, getSettings, requireReader } from "@/lib/auth";
-import { signSnapshotUrls, snapshotState } from "@/lib/snapshots";
+import { snapshotState, snapshotUrl } from "@/lib/snapshots";
 import { formatDayLong, formatTime, isoDateInZone, startOfDayInZone } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Översikt" };
@@ -57,7 +57,6 @@ export default async function OverviewPage() {
 
   const present = presence.data ?? [];
   const recentRows = recent.data ?? [];
-  const urls = await signSnapshotUrls(supabase, [...present, ...recentRows]);
   const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: tz }).format(now));
 
   const stats = [
@@ -120,7 +119,7 @@ export default async function OverviewPage() {
                 {present.map((p) => (
                   <li key={p.worker_id} className="flex items-center gap-4 rounded-xl px-2 py-3">
                     <SnapshotThumb
-                      url={p.snapshot_path ? urls.get(p.snapshot_path) : null}
+                      url={snapshotUrl(p)}
                       state={snapshotState(p)}
                       name={p.full_name ?? ""}
                     />
@@ -165,7 +164,7 @@ export default async function OverviewPage() {
                   <li key={log.id} className="flex items-center gap-3 rounded-xl px-2 py-2.5">
                     <SnapshotThumb
                       size="sm"
-                      url={log.snapshot_path ? urls.get(log.snapshot_path) : null}
+                      url={snapshotUrl(log)}
                       state={snapshotState(log)}
                       name={log.workers?.full_name ?? ""}
                     />

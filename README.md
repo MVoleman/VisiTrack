@@ -38,6 +38,7 @@ Create `.env.local` from `.env.example` with the values printed by `supabase sta
 | `/admin/workers`            | Staff, QR codes, printable badges                                    |
 | `/admin/logs`               | Time logs with snapshots, manual entries, voiding, CSV export        |
 | `/admin/settings`           | Presence window, duplicate-scan window, snapshot retention           |
+| `/admin/snapshots/*`        | Streams a snapshot after checking the caller's role (never a signed URL) |
 | `/api/cron/purge-snapshots` | Daily GDPR purge of old snapshots (Vercel Cron)                      |
 | `/login/glomt-losenord`     | Request a password reset link                                        |
 
@@ -60,7 +61,9 @@ Hidden device menu: press and hold the VisiTrack logo for two seconds (restart c
 1. Create the Supabase project in an **EU region** and follow [supabase/README.md](supabase/README.md).
 2. Import the repository in Vercel. `vercel.json` pins functions to `arn1` (Stockholm) and schedules the purge job.
 3. Add environment variables in Vercel: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
-   `SUPABASE_SECRET_KEY` and `CRON_SECRET` (see `.env.example`).
+   `SUPABASE_SECRET_KEY`, `CRON_SECRET` and `NEXT_PUBLIC_SITE_URL` (see `.env.example`).
+   `SUPABASE_SECRET_KEY` is required for snapshots to display, and `NEXT_PUBLIC_SITE_URL` for password
+   reset links — the app refuses to build those links from request headers.
 
 No third-party requests at runtime: fonts are self-hosted by `next/font`, and the QR decoder's WebAssembly
 file is served from `/zxing` (copied from `node_modules` by `scripts/copy-zxing-wasm.mjs`).

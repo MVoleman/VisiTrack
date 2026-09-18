@@ -1,6 +1,6 @@
 "use client";
 
-import { Info, UserX, WifiOff, X } from "lucide-react";
+import { Info, ShieldAlert, UserX, WifiOff, X } from "lucide-react";
 import { DEFAULT_TIME_ZONE, formatTime } from "@/lib/time";
 import type { TimeLogEvent } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ export type ScanResult =
   | { kind: "ok" | "duplicate"; event: TimeLogEvent; name: string; occurredAt: string; photoUrl?: string }
   | { kind: "inactive"; name: string }
   | { kind: "invalid" }
+  | { kind: "blocked_network" }
   | { kind: "error" };
 
 export function KioskResult({
@@ -106,6 +107,16 @@ function describe(result: ScanResult) {
         kicker: "QR-koden känns inte igen",
         title: null,
         subtitle: "Använd din personliga QR-kod från VisiTrack. Kontakta receptionen om problemet kvarstår.",
+      };
+    case "blocked_network":
+      return {
+        background: "bg-[#fdf0ef]",
+        accent: "text-destructive",
+        bar: "bg-destructive",
+        icon: <IconCircle className="bg-destructive text-white"><ShieldAlert className="size-20" strokeWidth={2.2} /></IconCircle>,
+        kicker: "Kiosken är inte godkänd här",
+        title: null,
+        subtitle: "Registreringen gjordes från ett nätverk som inte är tillåtet. Kontakta systemansvarig.",
       };
     case "error":
       return {

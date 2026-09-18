@@ -510,12 +510,12 @@
         <tr><th style="width: 34%">Område</th><th>Så fungerar det</th></tr>
         <tr><td><strong>Var lagras uppgifterna?</strong></td><td>Databas och bilder hos Supabase i Stockholm. Webbplatsen körs via Vercel i Stockholm. Inga uppgifter lämnar EU.</td></tr>
         <tr><td><strong>Hur länge?</strong></td><td>Bilderna raderas automatiskt efter 90 dagar (kan ändras i Inställningar). Tidrapporterna sparas tills ni bestämmer annat.</td></tr>
-        <tr><td><strong>Vem kan se bilderna?</strong></td><td>Endast inloggade med administratörs- eller läsbehörighet. Bilderna ligger i ett privat utrymme och visas via länkar som slutar gälla efter tio minuter.</td></tr>
-        <tr><td><strong>Vad sparas?</strong></td><td>Namn, företag, roll, tider och en lågupplöst bild per registrering. Ingen ansiktsigenkänning och ingen spårning i övrigt.</td></tr>
+        <tr><td><strong>Vem kan se bilderna?</strong></td><td>Endast inloggade med administratörs- eller läsbehörighet. Bilderna ligger i ett privat utrymme som bara servern når: varje visning går genom VisiTrack och kontrolleras mot din behörighet. Det går inte att skapa en delbar länk till en bild.</td></tr>
+        <tr><td><strong>Vad sparas?</strong></td><td>Namn, företag, roll, tider och en lågupplöst bild per registrering. Dessutom sparas kioskens nätverksadress för varje registrering, så att skanningar gjorda utanför skolan kan upptäckas. Ingen ansiktsigenkänning och ingen spårning i övrigt.</td></tr>
       </table>
       <h3>Att göra på skolan</h3>
       <ul>
-        <li>Informera personalen – gärna skriftligt – om att bild tas, varför och hur länge den sparas.</li>
+        <li>Informera personalen – gärna skriftligt – om att bild tas, varför och hur länge den sparas, och att kioskens nätverksadress registreras.</li>
         <li>Sätt upp en kort skylt vid kiosken.</li>
         <li>Teckna personuppgiftsbiträdesavtal (DPA) med Supabase och Vercel.</li>
         <li>Bestäm hur länge tidrapporterna ska sparas tillsammans med er dataskyddsansvarige.</li>

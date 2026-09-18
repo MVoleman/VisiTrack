@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/admin/page-header";
 import { getRequestTime, getSettings, requireReader } from "@/lib/auth";
-import { signSnapshotUrls, snapshotState } from "@/lib/snapshots";
+import { snapshotState, snapshotUrl } from "@/lib/snapshots";
 import { ExportMenu } from "./export-menu";
 import { LogFiltersBar } from "./log-filters";
 import { LogsTable, type LogRow } from "./logs-table";
@@ -20,7 +20,7 @@ export default async function LogsPage({ searchParams }: PageProps<"/admin/logs"
   let query = supabase
     .from("time_logs")
     .select(
-      "id, worker_id, event_type, occurred_at, source, client_captured_at, snapshot_path, snapshot_uploaded_at, snapshot_purged_at, note, voided_at, void_reason, created_at, workers(full_name, company, role), app_users(display_name)",
+      "id, worker_id, event_type, occurred_at, source, client_captured_at, kiosk_ip, snapshot_path, snapshot_uploaded_at, snapshot_purged_at, note, voided_at, void_reason, created_at, workers(full_name, company, role), app_users(display_name)",
       { count: "exact" },
     )
     .gte("occurred_at", start)
@@ -38,7 +38,6 @@ export default async function LogsPage({ searchParams }: PageProps<"/admin/logs"
   ]);
   if (logs.error) throw logs.error;
 
-  const urls = await signSnapshotUrls(supabase, logs.data);
   const rows: LogRow[] = logs.data.map((log) => ({
     id: log.id,
     workerName: log.workers?.full_name ?? "Okänd",
@@ -49,8 +48,10 @@ export default async function LogsPage({ searchParams }: PageProps<"/admin/logs"
     source: log.source,
     kioskName: log.app_users?.display_name ?? null,
     clientCapturedAt: log.client_captured_at,
+    // inet comes back as unknown from the generated types, and as "1.2.3.4/32" over the wire.
+    kioskIp: canManage && log.kiosk_ip ? String(log.kiosk_ip).replace(/\/(32|128)$/, "") : null,
     snapshotState: snapshotState(log),
-    snapshotUrl: log.snapshot_path ? (urls.get(log.snapshot_path) ?? null) : null,
+    snapshotUrl: snapshotUrl(log),
     note: log.note,
     voidedAt: log.voided_at,
     voidReason: log.void_reason,

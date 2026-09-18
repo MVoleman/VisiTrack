@@ -4,6 +4,9 @@ import { ArrowLeft } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ResetRequestForm } from "./reset-request-form";
 
+// Rendered per request so the CSP nonce from src/proxy.ts reaches the scripts.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = { title: "Glömt lösenord" };
 
 export default function ForgotPasswordPage() {

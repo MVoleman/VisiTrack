@@ -30,7 +30,7 @@ export function SnapshotThumb({
   if (url) {
     return (
       <span className={base}>
-        {/* Signed, short-lived URLs from a private bucket; next/image optimisation would cache them. */}
+        {/* Served by /admin/snapshots after a role check; never a shareable URL, so no caching. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={url} alt={`Bild tagen vid registrering av ${name}`} className="size-full object-cover" loading="lazy" />
       </span>

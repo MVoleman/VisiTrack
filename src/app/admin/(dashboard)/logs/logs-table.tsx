@@ -25,6 +25,8 @@ export type LogRow = {
   source: "kiosk" | "admin";
   kioskName: string | null;
   clientCapturedAt: string | null;
+  /** Only populated for admins. */
+  kioskIp: string | null;
   snapshotState: SnapshotState;
   snapshotUrl: string | null;
   note: string | null;

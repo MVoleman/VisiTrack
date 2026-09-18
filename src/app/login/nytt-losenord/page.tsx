@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Brand } from "@/components/brand";
 import { NewPasswordForm } from "./new-password-form";
 
+// Rendered per request so the CSP nonce from src/proxy.ts reaches the scripts.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = { title: "Välj nytt lösenord" };
 
 export default function NewPasswordPage() {

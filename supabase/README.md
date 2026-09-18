@@ -116,6 +116,8 @@ show ✓ + name  ──►  upload snapshot to snapshots/<yyyy>/<mm>/<time_log_i
 | Workers with time logs cannot be deleted (deactivate instead)                         | `on delete restrict`                            |
 | Admin role changes happen only in the SQL editor                                      | no write grants on `app_users`                  |
 | Viewers can read everything except QR tokens, and can change nothing                  | `private.can_read()` on select policies only    |
+| Nobody reads snapshots directly: no SELECT policy on `storage.objects` at all         | served by `/admin/snapshots` with the secret key |
+| Every kiosk scan records its source address, and may be limited to given networks     | `private.request_ip()`, `app_settings.kiosk_ip_allowlist` |
 
 ### Settings
 
@@ -127,6 +129,25 @@ set presence_window_hours = 16,
     duplicate_scan_seconds = 60,
     snapshot_retention_days = 90;
 ```
+
+## Restricting the kiosk to the school network
+
+Every scan records the address it came from (visible to admins under a time log, and in
+`time_logs.kiosk_ip`). Once you can see the school's real address there, enforcement is one
+statement — after which a stolen kiosk session is useless from anywhere else:
+
+```sql
+update public.app_settings set kiosk_ip_allowlist = '{203.0.113.4/32}';   -- your address
+update public.app_settings set kiosk_ip_allowlist = '{}';                 -- turn enforcement off
+```
+
+The list is empty by default, so a wrong guess can never lock the entrance. Scans from outside
+the list are refused with a clear message on the kiosk and nothing is recorded. The address is
+read from the last hop of `X-Forwarded-For`, which a client cannot forge past the proxy.
+
+Complementary settings in the dashboard, both worth turning on:
+- **Database → Network Restrictions** — limit database access to your own networks.
+- **Authentication → Sessions** — time-box sessions so a lifted kiosk token expires.
 
 ## Email (password reset and invitations)
 
@@ -149,12 +170,15 @@ confirmation message (it never reveals whether an address exists).
 ## GDPR notes
 
 - **Hosting:** keep Supabase in an EU region and set Vercel's Function Region to the EU (`arn1` Stockholm or `fra1` Frankfurt).
-- **Snapshots:** private bucket, viewed via short-lived signed URLs, purged after `snapshot_retention_days` (default 90).
+- **Snapshots:** private bucket with no read policy for any browser session. The app streams each image
+  through `/admin/snapshots` after checking the caller's role, so no shareable link to a photo can be
+  created. Purged after `snapshot_retention_days` (default 90).
   Storage objects must be removed through the Storage API, so the purge runs as a daily Vercel Cron job
   (`/api/cron/purge-snapshots`) calling `snapshots_due_for_purge()` → Storage `remove()` → `mark_snapshots_purged()`.
   Time records are kept and marked "snapshot purged".
 - **Time logs** are kept indefinitely as billing/attendance records. Decide on a retention period with your data protection officer.
 - **Right to erasure:** not automated yet. A worker with logs can be deactivated; full erasure is a manual SQL operation for now.
+- **Kiosk addresses:** `time_logs.kiosk_ip` stores the IP a scan came from, which is personal data. It exists to detect scans made from outside the school and is kept for as long as the time log.
 - Sign Supabase's and Vercel's Data Processing Addendums (DPA) and inform staff about the camera snapshots.
 
 ## Tests

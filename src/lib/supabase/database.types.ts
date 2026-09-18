@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           duplicate_scan_seconds: number
           id: boolean
+          kiosk_ip_allowlist: unknown[]
           presence_window_hours: number
           snapshot_retention_days: number
           time_zone: string
@@ -21,6 +22,7 @@ export type Database = {
         Insert: {
           duplicate_scan_seconds?: number
           id?: boolean
+          kiosk_ip_allowlist?: unknown[]
           presence_window_hours?: number
           snapshot_retention_days?: number
           time_zone?: string
@@ -29,6 +31,7 @@ export type Database = {
         Update: {
           duplicate_scan_seconds?: number
           id?: boolean
+          kiosk_ip_allowlist?: unknown[]
           presence_window_hours?: number
           snapshot_retention_days?: number
           time_zone?: string
@@ -57,6 +60,38 @@ export type Database = {
         }
         Relationships: []
       }
+      kiosk_scan_denials: {
+        Row: {
+          id: string
+          kiosk_ip: unknown
+          kiosk_user_id: string | null
+          occurred_at: string
+          reason: string
+        }
+        Insert: {
+          id?: string
+          kiosk_ip?: unknown
+          kiosk_user_id?: string | null
+          occurred_at?: string
+          reason: string
+        }
+        Update: {
+          id?: string
+          kiosk_ip?: unknown
+          kiosk_user_id?: string | null
+          occurred_at?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kiosk_scan_denials_kiosk_user_id_fkey"
+            columns: ["kiosk_user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       time_logs: {
         Row: {
           client_captured_at: string | null
@@ -64,6 +99,7 @@ export type Database = {
           created_by: string | null
           event_type: Database["public"]["Enums"]["time_log_event"]
           id: string
+          kiosk_ip: unknown
           kiosk_user_id: string | null
           note: string | null
           occurred_at: string
@@ -84,6 +120,7 @@ export type Database = {
           created_by?: string | null
           event_type: Database["public"]["Enums"]["time_log_event"]
           id?: string
+          kiosk_ip?: unknown
           kiosk_user_id?: string | null
           note?: string | null
           occurred_at?: string
@@ -104,6 +141,7 @@ export type Database = {
           created_by?: string | null
           event_type?: Database["public"]["Enums"]["time_log_event"]
           id?: string
+          kiosk_ip?: unknown
           kiosk_user_id?: string | null
           note?: string | null
           occurred_at?: string

@@ -123,6 +123,10 @@ export function KioskScreen({
         case "inactive_worker":
           showResult({ kind: "inactive", name: row.worker_name });
           break;
+        case "blocked_network":
+          // The database refused the scan: this kiosk is outside the allowlist.
+          showResult({ kind: "blocked_network" });
+          break;
         default:
           showResult({ kind: "invalid" });
       }

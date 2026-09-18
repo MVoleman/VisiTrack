@@ -75,6 +75,9 @@ async function as(uid, fn) {
   }
 }
 const q = async (sql, params) => (await db.query(sql, params)).rows;
+/** Simulates the headers PostgREST exposes to a request (used for kiosk IP binding). */
+const withHeaders = async (headers) =>
+  db.exec(`select set_config('request.headers', ${headers === null ? "''" : `'${JSON.stringify(headers)}'`}, false);`);
 const badgeToken = async (workerId) =>
   (await q(`select token from public.worker_badges where worker_id = $1`, [workerId]))[0]?.token;
 // Move a worker's history back in time (bypasses triggers, superuser only).
@@ -176,7 +179,7 @@ passed++;
 check("kiosk cannot read snapshots back", (await as(KIOSK, () => q(`select * from storage.objects`))).length === 0);
 check("confirm after upload returns true", (await as(KIOSK, () => q(`select public.kiosk_confirm_snapshot($1) ok`, [s1.time_log_id])))[0].ok === true);
 check("second confirm returns false", (await as(KIOSK, () => q(`select public.kiosk_confirm_snapshot($1) ok`, [s1.time_log_id])))[0].ok === false);
-check("admin can read snapshot objects", (await as(ADMIN, () => q(`select * from storage.objects`))).length === 1);
+// Superseded: admins no longer read storage objects at all (see the snapshot lockdown block below).
 // Even if the object disappeared, a confirmed scan's path can never be re-uploaded (no evidence swapping).
 await db.exec(`delete from storage.objects`);
 await expectError("no re-upload after confirmation", () => upload(KIOSK, s1.snapshot_path), /row-level security/);
@@ -329,6 +332,132 @@ const seeded = (await q(`insert into public.workers (full_name, company, role) v
 check("service_role can insert workers (badge created by trigger)", /^vt1_/.test(await badgeToken(seeded.id)));
 await expectError("service_role cannot call assign_role", () => q(`select private.assign_role('admin@skola.se', 'admin', 'x')`), /permission denied/);
 await db.exec(`reset role`);
+
+// ---------------------------------------------------------------------------
+// Snapshots are server-only: no role may read storage objects
+// ---------------------------------------------------------------------------
+await db.exec(`insert into storage.objects (bucket_id, name) values ('snapshots', '2026/09/read-test.jpg') on conflict do nothing;`);
+check("admin CANNOT read storage objects", (await as(ADMIN, () => q(`select * from storage.objects`))).length === 0);
+check("viewer CANNOT read storage objects", (await as(VIEWER, () => q(`select * from storage.objects`))).length === 0);
+check("kiosk CANNOT read storage objects", (await as(KIOSK, () => q(`select * from storage.objects`))).length === 0);
+check("no select policy remains on storage.objects",
+  (await q(`select count(*)::int n from pg_policies where tablename = 'objects' and cmd = 'SELECT'`))[0].n === 0);
+
+// ---------------------------------------------------------------------------
+// Kiosk network binding
+// ---------------------------------------------------------------------------
+const [w5] = await as(ADMIN, () => q(`insert into public.workers (full_name, company, role) values ('Nät Test','N','N') returning *`));
+w5.qr_token = await badgeToken(w5.id);
+
+// The proxy appends the real address last; a client-supplied value comes first.
+await withHeaders({ "x-forwarded-for": "9.9.9.9, 203.0.113.4", "x-real-ip": "203.0.113.4" });
+check("request_ip takes the LAST forwarded hop, not the client's claim",
+  (await q(`select host(private.request_ip()) ip`))[0].ip === "203.0.113.4");
+
+await as(KIOSK, async () => {
+  await withHeaders({ "x-forwarded-for": "9.9.9.9, 203.0.113.4" });
+  return q(`select * from public.kiosk_register_scan($1)`, [w5.qr_token]);
+});
+check("kiosk scan records the source address",
+  (await q(`select host(kiosk_ip) ip from public.time_logs where worker_id = $1`, [w5.id]))[0].ip === "203.0.113.4");
+
+// Enforcement off by default: an unknown address is still accepted.
+const [w6] = await as(ADMIN, () => q(`insert into public.workers (full_name, company, role) values ('Nät Test 2','N','N') returning *`));
+w6.qr_token = await badgeToken(w6.id);
+const openScan = await as(KIOSK, async () => {
+  await withHeaders({ "x-forwarded-for": "198.51.100.7" });
+  return q(`select * from public.kiosk_register_scan($1)`, [w6.qr_token]);
+});
+check("empty allowlist accepts any network", openScan[0].status === "ok");
+
+// Turn enforcement on.
+await db.exec(`update public.app_settings set kiosk_ip_allowlist = '{203.0.113.0/24}';`);
+const [w7] = await as(ADMIN, () => q(`insert into public.workers (full_name, company, role) values ('Nät Test 3','N','N') returning *`));
+w7.qr_token = await badgeToken(w7.id);
+
+const outside = await as(KIOSK, async () => {
+  await withHeaders({ "x-forwarded-for": "198.51.100.7" });
+  return q(`select * from public.kiosk_register_scan($1)`, [w7.qr_token]);
+});
+check("scan from outside the allowlist is refused", outside[0].status === "blocked_network");
+check("refused scan records nothing",
+  (await q(`select count(*)::int n from public.time_logs where worker_id = $1`, [w7.id]))[0].n === 0);
+
+const spoofed = await as(KIOSK, async () => {
+  // Attacker claims an allowed address; the proxy's real value is appended last.
+  await withHeaders({ "x-forwarded-for": "203.0.113.4, 198.51.100.7" });
+  return q(`select * from public.kiosk_register_scan($1)`, [w7.qr_token]);
+});
+check("spoofed X-Forwarded-For does NOT bypass the allowlist", spoofed[0].status === "blocked_network");
+
+const inside = await as(KIOSK, async () => {
+  await withHeaders({ "x-forwarded-for": "9.9.9.9, 203.0.113.9" });
+  return q(`select * from public.kiosk_register_scan($1)`, [w7.qr_token]);
+});
+check("scan from inside the allowlist is accepted", inside[0].status === "ok");
+
+const noHeaders = await as(KIOSK, async () => {
+  await withHeaders(null);
+  return q(`select * from public.kiosk_register_scan($1)`, [w6.qr_token]);
+});
+check("unknown address is refused while enforcement is on", noHeaders[0].status === "blocked_network");
+await db.exec(`update public.app_settings set kiosk_ip_allowlist = '{}';`);
+await withHeaders(null);
+
+// ---------------------------------------------------------------------------
+// Source address parsing must survive real proxies (hardening migration)
+// ---------------------------------------------------------------------------
+const ipFor = async (headers) => {
+  await withHeaders(headers);
+  return (await q(`select host(private.request_ip()) ip`))[0].ip;
+};
+check("port suffix is stripped", (await ipFor({ "x-forwarded-for": "9.9.9.9, 10.0.0.1:53422" })) === "10.0.0.1");
+check("bracketed IPv6 with port is parsed", (await ipFor({ "x-forwarded-for": "9.9.9.9, [2001:db8::2]:443" })) === "2001:db8::2");
+check("IPv4-mapped IPv6 becomes the IPv4 address", (await ipFor({ "x-forwarded-for": "::ffff:192.0.2.5" })) === "192.0.2.5");
+check("x-real-ip alone is NOT trusted", (await ipFor({ "x-real-ip": "1.2.3.4" })) === null);
+check("junk yields no address rather than an error", (await ipFor({ "x-forwarded-for": "not-an-ip" })) === null);
+
+check("IPv4-mapped address matches an IPv4 network",
+  (await q(`select private.ip_allowed('::ffff:192.0.2.5'::inet, '{192.0.2.0/24}'::cidr[]) ok`))[0].ok === true);
+check("a NULL-only allowlist does not enforce (and the UI filters NULLs to match)",
+  (await q(`select private.ip_allowed('198.51.100.7'::inet, '{NULL}'::cidr[]) ok`))[0].ok === true);
+check("a NULL element cannot smuggle an address past a real list",
+  (await q(`select private.ip_allowed('198.51.100.7'::inet, '{NULL,203.0.113.0/24}'::cidr[]) ok`))[0].ok === false);
+check("unknown address is refused when a list is set",
+  (await q(`select private.ip_allowed(null, '{203.0.113.0/24}'::cidr[]) ok`))[0].ok === false);
+
+// ---------------------------------------------------------------------------
+// A refused scan must leave evidence
+// ---------------------------------------------------------------------------
+await db.exec(`update public.app_settings set kiosk_ip_allowlist = '{203.0.113.0/24}';`);
+const [w8] = await as(ADMIN, () => q(`insert into public.workers (full_name, company, role) values ('Spår Test','S','S') returning *`));
+w8.qr_token = await badgeToken(w8.id);
+
+await as(KIOSK, async () => {
+  await withHeaders({ "x-forwarded-for": "198.51.100.7" });
+  return q(`select * from public.kiosk_register_scan($1)`, [w8.qr_token]);
+});
+const denials = await q(`select host(kiosk_ip) ip, reason from public.kiosk_scan_denials order by occurred_at desc`);
+const denialCountBefore = denials.length;
+check("refused scan is recorded with address and reason",
+  denials[0]?.ip === "198.51.100.7" && denials[0]?.reason === "outside_allowlist",
+  JSON.stringify(denials[0]));
+
+await as(KIOSK, async () => {
+  await withHeaders(null);
+  return q(`select * from public.kiosk_register_scan($1)`, [w8.qr_token]);
+});
+check("refusal for an unknown address is recorded separately",
+  (await q(`select reason from public.kiosk_scan_denials order by occurred_at desc limit 1`))[0]?.reason === "unknown_source_address");
+
+check("admin reads denied scans", (await as(ADMIN, () => q(`select * from public.kiosk_scan_denials`))).length === denialCountBefore + 1);
+check("viewer CANNOT read denied scans", (await as(VIEWER, () => q(`select * from public.kiosk_scan_denials`))).length === 0);
+check("kiosk CANNOT read denied scans", (await as(KIOSK, () => q(`select * from public.kiosk_scan_denials`))).length === 0);
+await expectError("nobody can forge a denial record",
+  () => as(ADMIN, () => q(`insert into public.kiosk_scan_denials (reason) values ('fake')`)), /permission denied/);
+
+await db.exec(`update public.app_settings set kiosk_ip_allowlist = '{}';`);
+await withHeaders(null);
 
 console.log(`\n${passed} passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);

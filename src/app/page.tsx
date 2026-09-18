@@ -2,6 +2,9 @@ import Link from "next/link";
 import { ArrowRight, LayoutDashboard, ScanLine } from "lucide-react";
 import { Brand } from "@/components/brand";
 
+// Rendered per request so the CSP nonce from src/proxy.ts reaches the scripts.
+export const dynamic = "force-dynamic";
+
 const destinations = [
   {
     href: "/kiosk",

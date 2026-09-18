@@ -8,7 +8,18 @@ const PROTECTED_PREFIXES = ["/admin"];
  * Refreshes the Supabase auth session on each request and guards admin routes.
  * Fails closed: if Supabase is not configured, admin routes redirect to /login.
  */
-export async function updateSession(request: NextRequest) {
+export async function updateSession(request: NextRequest, extraHeaders: Record<string, string>) {
+  /**
+   * Headers to forward to the render, built fresh each time: refreshing the
+   * session rewrites request.cookies, and a snapshot taken before that would
+   * hand the renderer an expired token (and bounce the user to /login).
+   */
+  const forward = () => {
+    const headers = new Headers(request.headers);
+    for (const [key, value] of Object.entries(extraHeaders)) headers.set(key, value);
+    return headers;
+  };
+
   const { pathname } = request.nextUrl;
   const isProtected = PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
@@ -16,10 +27,10 @@ export async function updateSession(request: NextRequest) {
 
   const env = getSupabaseEnv();
   if (!env) {
-    return isProtected ? redirectToLogin(request) : NextResponse.next({ request });
+    return isProtected ? redirectToLogin(request) : NextResponse.next({ request: { headers: forward() } });
   }
 
-  let response = NextResponse.next({ request });
+  let response = NextResponse.next({ request: { headers: forward() } });
 
   const supabase = createServerClient(env.url, env.key, {
     cookies: {
@@ -30,7 +41,7 @@ export async function updateSession(request: NextRequest) {
         for (const { name, value } of cookiesToSet) {
           request.cookies.set(name, value);
         }
-        response = NextResponse.next({ request });
+        response = NextResponse.next({ request: { headers: forward() } });
         for (const { name, value, options } of cookiesToSet) {
           response.cookies.set(name, value, options);
         }
@@ -46,16 +57,20 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
 
   if (isProtected && !data?.claims) {
-    return redirectToLogin(request);
+    // Carry over anything Supabase wrote - notably the cookie-clearing headers
+    // from a failed refresh, which would otherwise leave a dead session cookie.
+    return redirectToLogin(request, response);
   }
 
   return response;
 }
 
-function redirectToLogin(request: NextRequest) {
+function redirectToLogin(request: NextRequest, carry?: NextResponse) {
   const url = request.nextUrl.clone();
   url.pathname = "/login";
   url.search = "";
   url.searchParams.set("next", request.nextUrl.pathname);
-  return NextResponse.redirect(url);
+  const redirect = NextResponse.redirect(url);
+  for (const cookie of carry?.cookies.getAll() ?? []) redirect.cookies.set(cookie);
+  return redirect;
 }

@@ -161,24 +161,16 @@ await shot("oversikt", { url: "/admin", height: 900, wait: 2000 });
 await shot("personal", { url: "/admin/workers", height: 720 });
 await shot("qr-kod", {
   before: `(async () => {
-    document.querySelector('button[aria-label^="Visa QR-kod"]').click();
+    const find = () => document.querySelector('button[aria-label^="Visa QR-kod"]');
+    for (let i = 0; i < 60 && !find(); i++) await new Promise(r => setTimeout(r, 100));
+    const button = find();
+    if (!button) throw new Error('QR-knappen hittades inte på ' + location.pathname);
+    button.click();
     await new Promise(r => setTimeout(r, 1500));
     return true;
   })()`,
   height: 820,
 });
-await shot("tidrapporter", { url: "/admin/logs", height: 860, wait: 2000 });
-await shot("tidrapport-detalj", {
-  before: `(async () => {
-    document.querySelector('button[aria-label^="Visa detaljer"]').click();
-    await new Promise(r => setTimeout(r, 1500));
-    return true;
-  })()`,
-  height: 760,
-});
-await shot("installningar", { url: "/admin/settings", height: 860, wait: 1500 });
-await shot("passerkort", { url: "/admin/badges/active", height: 900, wait: 1500 });
-
 // ── Kiosk ──────────────────────────────────────────────────────────────────
 await cdp("Browser.grantPermissions", { origin: BASE, permissions: ["videoCapture"] }).catch(() => {});
 await shot("kiosk-vilolage", {
@@ -206,6 +198,23 @@ await shot("kiosk-incheckad", {
   })()`,
   wait: 0,
 });
+
+// ── Admin screens that need a scan to exist ─────────────────────────────────
+await shot("tidrapporter", { url: "/admin/logs", height: 860, wait: 2000 });
+await shot("tidrapport-detalj", {
+  before: `(async () => {
+    const find = () => document.querySelector('button[aria-label^="Visa detaljer"]');
+    for (let i = 0; i < 60 && !find(); i++) await new Promise(r => setTimeout(r, 100));
+    const button = find();
+    if (!button) throw new Error('Ingen tidrapport att öppna på ' + location.pathname);
+    button.click();
+    await new Promise(r => setTimeout(r, 1500));
+    return true;
+  })()`,
+  height: 760,
+});
+await shot("installningar", { url: "/admin/settings", height: 860, wait: 1500 });
+await shot("passerkort", { url: "/admin/badges/active", height: 900, wait: 1500 });
 
 ws.close();
 chrome.kill();
