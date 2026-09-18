@@ -92,6 +92,43 @@ export type Database = {
           },
         ]
       }
+      kiosk_scan_sources: {
+        Row: {
+          kiosk_ip: unknown
+          time_log_id: string
+        }
+        Insert: {
+          kiosk_ip: unknown
+          time_log_id: string
+        }
+        Update: {
+          kiosk_ip?: unknown
+          time_log_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kiosk_scan_sources_time_log_id_fkey"
+            columns: ["time_log_id"]
+            isOneToOne: true
+            referencedRelation: "current_presence"
+            referencedColumns: ["time_log_id"]
+          },
+          {
+            foreignKeyName: "kiosk_scan_sources_time_log_id_fkey"
+            columns: ["time_log_id"]
+            isOneToOne: true
+            referencedRelation: "time_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kiosk_scan_sources_time_log_id_fkey"
+            columns: ["time_log_id"]
+            isOneToOne: true
+            referencedRelation: "work_sessions"
+            referencedColumns: ["check_in_log_id"]
+          },
+        ]
+      }
       time_logs: {
         Row: {
           client_captured_at: string | null
@@ -99,7 +136,6 @@ export type Database = {
           created_by: string | null
           event_type: Database["public"]["Enums"]["time_log_event"]
           id: string
-          kiosk_ip: unknown
           kiosk_user_id: string | null
           note: string | null
           occurred_at: string
@@ -120,7 +156,6 @@ export type Database = {
           created_by?: string | null
           event_type: Database["public"]["Enums"]["time_log_event"]
           id?: string
-          kiosk_ip?: unknown
           kiosk_user_id?: string | null
           note?: string | null
           occurred_at?: string
@@ -141,7 +176,6 @@ export type Database = {
           created_by?: string | null
           event_type?: Database["public"]["Enums"]["time_log_event"]
           id?: string
-          kiosk_ip?: unknown
           kiosk_user_id?: string | null
           note?: string | null
           occurred_at?: string
@@ -315,6 +349,10 @@ export type Database = {
       mark_snapshots_purged: {
         Args: { p_time_log_ids: string[] }
         Returns: number
+      }
+      rekey_snapshot: {
+        Args: { p_new_path: string; p_time_log_id: string }
+        Returns: string
       }
       rotate_worker_qr_token: { Args: { p_worker_id: string }; Returns: string }
       snapshots_due_for_purge: {

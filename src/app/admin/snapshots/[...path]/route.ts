@@ -35,16 +35,32 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/admin/snaps
 
   if (!row) return new Response("Not found", { status: 404 });
 
+  // One neutral body for every caller and every cause. The status code is what
+  // carries the difference, so the server log and a viewer's screen never
+  // disagree about what a viewer is allowed to know.
+  const unavailable = (status: number) => new Response("Bilden kan inte visas", { status });
+
   const admin = createAdminClient();
   if (!admin) {
-    console.error("SUPABASE_SECRET_KEY is not configured; snapshots cannot be served");
-    return new Response("Snapshot storage is not configured", { status: 500 });
+    console.error("snapshot-storage-unavailable: SUPABASE_SECRET_KEY is not set");
+    return unavailable(503);
   }
 
   const { data: file, error } = await admin.storage.from(SNAPSHOT_BUCKET).download(objectPath);
   if (error || !file) {
-    console.warn("Snapshot download failed", objectPath, error?.message);
-    return new Response("Not found", { status: 404 });
+    // A wrong key and a deleted photo both answer "Object not found" here, and
+    // the difference matters: one is a broken deployment, the other is data
+    // loss to report. Asking for the bucket separates them - it succeeds only
+    // if the credentials are good.
+    const { error: bucketError } = await admin.storage.getBucket(SNAPSHOT_BUCKET);
+    if (bucketError) {
+      console.error("snapshot-storage-unavailable:", bucketError.message);
+      return unavailable(503);
+    }
+
+    // The row says the photo was uploaded and not purged, but it is gone.
+    console.error("snapshot-object-missing:", objectPath, error?.message);
+    return unavailable(410);
   }
 
   return new Response(file, {

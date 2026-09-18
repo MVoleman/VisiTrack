@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Ban, CameraOff, Timer } from "lucide-react";
+import { Ban, CameraOff, ImageOff, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { EventBadge } from "@/components/admin/event-badge";
+import { SnapshotImage } from "@/components/admin/snapshot-image";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -52,27 +53,31 @@ function DetailBody({ log, timeZone, canManage }: { log: LogRow; timeZone: strin
     <div className="grid md:grid-cols-[1.1fr_1fr]">
       <div className="relative aspect-video bg-gray-950 md:aspect-auto md:min-h-[420px]">
         {log.snapshotUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SnapshotImage
             src={log.snapshotUrl}
             alt={`Bild tagen vid registrering av ${log.workerName}`}
             // Contain, never crop: the whole captured frame is the evidence.
             className="absolute inset-0 size-full object-contain"
+            // Deliberately different words from the retention message below: a
+            // photo that could not be fetched has not been deleted, and saying
+            // so would be the wrong answer to a question about personal data.
+            fallback={
+              <SnapshotMessage icon={ImageOff}>
+                Bilden kunde inte hämtas. Registreringen finns kvar – kontakta den som förvaltar systemet.
+              </SnapshotMessage>
+            }
           />
         ) : (
-          <div className="absolute inset-0 grid place-items-center p-8 text-center text-sm text-gray-400">
-            <div className="grid justify-items-center gap-3">
-              {log.snapshotState === "purged" ? <Timer className="size-8" /> : <CameraOff className="size-8" />}
+          <SnapshotMessage icon={log.snapshotState === "purged" ? Timer : CameraOff}>
+            {
               {
-                {
-                  purged: "Bilden har raderats enligt lagringspolicyn.",
-                  missing: "Ingen bild laddades upp för den här registreringen.",
-                  none: "Manuell registrering – ingen bild.",
-                  available: "Bilden kunde inte laddas.",
-                }[log.snapshotState]
-              }
-            </div>
-          </div>
+                purged: "Bilden har raderats enligt lagringspolicyn.",
+                missing: "Ingen bild laddades upp för den här registreringen.",
+                none: "Manuell registrering – ingen bild.",
+                available: "Bilden kunde inte hämtas.",
+              }[log.snapshotState]
+            }
+          </SnapshotMessage>
         )}
       </div>
 
@@ -192,6 +197,24 @@ function DetailBody({ log, timeZone, canManage }: { log: LogRow; timeZone: strin
             )}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Centred icon + sentence filling the photo panel. */
+function SnapshotMessage({
+  icon: Icon,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="absolute inset-0 grid place-items-center p-8 text-center text-sm text-gray-400">
+      <div className="grid justify-items-center gap-3">
+        <Icon className="size-8" />
+        {children}
       </div>
     </div>
   );

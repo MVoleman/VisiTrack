@@ -67,8 +67,11 @@ NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-For the daily snapshot purge job (`/api/cron/purge-snapshots`, scheduled in `vercel.json`) also add the
-server-only `SUPABASE_SECRET_KEY` (Secret keys) and a random `CRON_SECRET` (`openssl rand -hex 32`).
+Also add the server-only `SUPABASE_SECRET_KEY` (Secret keys) and a random `CRON_SECRET`
+(`openssl rand -hex 32`). The secret key is **not optional**: no browser session may read the snapshot
+bucket, so every photo in the admin UI is streamed by `/admin/snapshots` with that key. Without it no
+photo can be shown at all (the route answers `503` and logs `snapshot-storage-unavailable`), and the
+daily purge job cannot delete anything either.
 
 ---
 
@@ -76,10 +79,12 @@ server-only `SUPABASE_SECRET_KEY` (Secret keys) and a random `CRON_SECRET` (`ope
 
 | Object                    | Kind     | Purpose                                                                  |
 | ------------------------- | -------- | ------------------------------------------------------------------------ |
-| `app_users`               | table    | Role (`admin` / `kiosk`) for each Supabase Auth user                     |
+| `app_users`               | table    | Role (`admin` / `viewer` / `kiosk`) for each Supabase Auth user          |
 | `workers`                 | table    | External staff: name, company, job role, active flag                     |
 | `worker_badges`           | table    | QR token per worker. Admin-only, so viewers never see badge secrets      |
 | `time_logs`               | table    | Append-only check-in/check-out events with snapshot reference and audit  |
+| `kiosk_scan_sources`      | table    | Address each scan came from. Admin-only: RLS filters rows, not columns   |
+| `kiosk_scan_denials`      | table    | Scans refused by the network allowlist, as evidence. Admin-only          |
 | `app_settings`            | table    | Single row: time zone, presence window, duplicate window, retention days |
 | `current_presence`        | view     | Who is in the building right now                                         |
 | `work_sessions`           | view     | Check-in → check-out pairs with duration (reports, CSV export)           |
@@ -118,6 +123,9 @@ show ✓ + name  ──►  upload snapshot to snapshots/<yyyy>/<mm>/<time_log_i
 | Viewers can read everything except QR tokens, and can change nothing                  | `private.can_read()` on select policies only    |
 | Nobody reads snapshots directly: no SELECT policy on `storage.objects` at all         | served by `/admin/snapshots` with the secret key |
 | Every kiosk scan records its source address, and may be limited to given networks     | `private.request_ip()`, `app_settings.kiosk_ip_allowlist` |
+| The source address is readable by admins only, over the API and over realtime alike   | own table `kiosk_scan_sources`, admin-only policy |
+| A refused scan is recorded with its address and reason                                | `kiosk_scan_denials`                            |
+| A snapshot path cannot be guessed from a time log id, and can be retired if leaked    | `private.new_snapshot_path()`, `rekey_snapshot()` |
 
 ### Settings
 
@@ -133,7 +141,7 @@ set presence_window_hours = 16,
 ## Restricting the kiosk to the school network
 
 Every scan records the address it came from (visible to admins under a time log, and in
-`time_logs.kiosk_ip`). Once you can see the school's real address there, enforcement is one
+`public.kiosk_scan_sources`). Once you can see the school's real address there, enforcement is one
 statement — after which a stolen kiosk session is useless from anywhere else:
 
 ```sql
@@ -142,7 +150,8 @@ update public.app_settings set kiosk_ip_allowlist = '{}';                 -- tur
 ```
 
 The list is empty by default, so a wrong guess can never lock the entrance. Scans from outside
-the list are refused with a clear message on the kiosk and nothing is recorded. The address is
+the list are refused with a clear message on the kiosk, and the attempt is recorded in
+`public.kiosk_scan_denials` with its address and reason. The address is
 read from the last hop of `X-Forwarded-For`, which a client cannot forge past the proxy.
 
 Complementary settings in the dashboard, both worth turning on:
@@ -167,6 +176,35 @@ exchanges the token and forwards the person.
 Without SMTP configured, reset emails may silently not arrive. The app always shows the same
 confirmation message (it never reveals whether an address exists).
 
+## If a link to a photo may have leaked
+
+A Supabase signed URL is a token over the literal string `snapshots/<path>`. It names no user, and
+when it is redeemed the storage service resolves the path as superuser - no policy, grant or account
+is consulted. Nothing revokes it. Two things follow:
+
+- No session can create one any more: there is no SELECT policy on `storage.objects` for any
+  browser-facing role.
+- Links created **before** that change keep working until they expire. The admin pages minted a
+  10-minute one per image, but anyone signed in could mint one with any expiry.
+
+To retire those links, move the photos they name:
+
+```bash
+npm run snapshots:rekey -- --dry-run   # list what would move
+npm run snapshots:rekey                # move them
+```
+
+Every photo moves to a path carrying 128 bits of randomness, and the old link then answers
+`NoSuchKey` for good - nothing can legitimately reoccupy the old path. Run it if a link may have
+been shared, if `SUPABASE_SECRET_KEY` may have leaked (rotate the key first), or when someone with
+admin or viewer access leaves.
+
+What kills **every** outstanding link at once, including any this project does not know about, is
+rotating the project's JWT secret in the Supabase dashboard. Check what else presents a legacy JWT
+before doing it: here, user sessions are signed with the asymmetric JWKS key and the API keys are the
+opaque `sb_publishable_` / `sb_secret_` kind, so nothing in this repo depends on the legacy secret
+except storage URL signing - but an old deployment, integration or webhook might.
+
 ## GDPR notes
 
 - **Hosting:** keep Supabase in an EU region and set Vercel's Function Region to the EU (`arn1` Stockholm or `fra1` Frankfurt).
@@ -178,7 +216,7 @@ confirmation message (it never reveals whether an address exists).
   Time records are kept and marked "snapshot purged".
 - **Time logs** are kept indefinitely as billing/attendance records. Decide on a retention period with your data protection officer.
 - **Right to erasure:** not automated yet. A worker with logs can be deactivated; full erasure is a manual SQL operation for now.
-- **Kiosk addresses:** `time_logs.kiosk_ip` stores the IP a scan came from, which is personal data. It exists to detect scans made from outside the school and is kept for as long as the time log.
+- **Kiosk addresses:** `kiosk_scan_sources.kiosk_ip` stores the IP a scan came from, which is personal data. It exists to detect scans made from outside the school and is kept for as long as the time log. Only admins can read it - it sits in its own table because row level security filters rows, never columns, so a column on `time_logs` would have been readable by viewers over the API and over the realtime channel.
 - Sign Supabase's and Vercel's Data Processing Addendums (DPA) and inform staff about the camera snapshots.
 
 ## Tests

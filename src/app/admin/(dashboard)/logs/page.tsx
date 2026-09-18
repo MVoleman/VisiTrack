@@ -20,7 +20,7 @@ export default async function LogsPage({ searchParams }: PageProps<"/admin/logs"
   let query = supabase
     .from("time_logs")
     .select(
-      "id, worker_id, event_type, occurred_at, source, client_captured_at, kiosk_ip, snapshot_path, snapshot_uploaded_at, snapshot_purged_at, note, voided_at, void_reason, created_at, workers(full_name, company, role), app_users(display_name)",
+      "id, worker_id, event_type, occurred_at, source, client_captured_at, snapshot_path, snapshot_uploaded_at, snapshot_purged_at, note, voided_at, void_reason, created_at, workers(full_name, company, role), app_users(display_name), kiosk_scan_sources(kiosk_ip)",
       { count: "exact" },
     )
     .gte("occurred_at", start)
@@ -48,11 +48,10 @@ export default async function LogsPage({ searchParams }: PageProps<"/admin/logs"
     source: log.source,
     kioskName: log.app_users?.display_name ?? null,
     clientCapturedAt: log.client_captured_at,
-    // inet comes back as unknown from the generated types, and as "1.2.3.4/32" over the wire.
-    // Hiding it from viewers is presentation, not a boundary: RLS is row-level, so a viewer
-    // who queries the API directly can read the column. It is the kiosk's own address, not a
-    // worker's, so that is acceptable - but don't treat this line as access control.
-    kioskIp: canManage && log.kiosk_ip ? String(log.kiosk_ip).replace(/\/(32|128)$/, "") : null,
+    // The address lives in its own admin-only table, so a viewer's own query
+    // returns null here - the boundary is the policy, not this line. inet comes
+    // back as unknown from the generated types, and as "1.2.3.4/32" over the wire.
+    kioskIp: log.kiosk_scan_sources ? String(log.kiosk_scan_sources.kiosk_ip).replace(/\/(32|128)$/, "") : null,
     snapshotState: snapshotState(log),
     snapshotUrl: snapshotUrl(log),
     note: log.note,

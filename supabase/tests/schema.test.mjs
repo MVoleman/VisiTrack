@@ -157,7 +157,7 @@ await expectError("anon cannot register scans", () => scan(null, worker.qr_token
 const [s1] = await scan(KIOSK, worker.qr_token);
 check("first scan is check_in", s1.status === "ok" && s1.event_type === "check_in", JSON.stringify(s1));
 check("scan returns worker name", s1.worker_name === "Erik Svensson" && s1.worker_company === "Städbolaget AB");
-check("snapshot path format", /^\d{4}\/\d{2}\/[0-9a-f-]{36}\.jpg$/.test(s1.snapshot_path) && s1.snapshot_path.includes(s1.time_log_id), s1.snapshot_path);
+check("snapshot path format", /^\d{4}\/\d{2}\/[0-9a-f-]{36}-[0-9a-f]{32}\.jpg$/.test(s1.snapshot_path) && s1.snapshot_path.includes(s1.time_log_id), s1.snapshot_path);
 
 const [dup] = await scan(KIOSK, worker.qr_token);
 check("immediate rescan is duplicate", dup.status === "duplicate" && dup.time_log_id === s1.time_log_id && dup.snapshot_path === null, JSON.stringify(dup));
@@ -359,7 +359,12 @@ await as(KIOSK, async () => {
   return q(`select * from public.kiosk_register_scan($1)`, [w5.qr_token]);
 });
 check("kiosk scan records the source address",
-  (await q(`select host(kiosk_ip) ip from public.time_logs where worker_id = $1`, [w5.id]))[0].ip === "203.0.113.4");
+  (await q(`select host(s.kiosk_ip) ip
+            from public.kiosk_scan_sources s
+            join public.time_logs t on t.id = s.time_log_id
+            where t.worker_id = $1`, [w5.id]))[0].ip === "203.0.113.4");
+await expectError("the address is not a column on time_logs any more",
+  () => q(`select kiosk_ip from public.time_logs limit 1`), /does not exist/i);
 
 // Enforcement off by default: an unknown address is still accepted.
 const [w6] = await as(ADMIN, () => q(`insert into public.workers (full_name, company, role) values ('Nät Test 2','N','N') returning *`));
@@ -456,8 +461,76 @@ check("kiosk CANNOT read denied scans", (await as(KIOSK, () => q(`select * from 
 await expectError("nobody can forge a denial record",
   () => as(ADMIN, () => q(`insert into public.kiosk_scan_denials (reason) values ('fake')`)), /permission denied/);
 
+const [sourceRow] = await q(`select time_log_id from public.kiosk_scan_sources limit 1`);
+check("admin reads the kiosk addresses",
+  (await as(ADMIN, () => q(`select * from public.kiosk_scan_sources`))).length > 0);
+check("viewer CANNOT read the kiosk addresses",
+  (await as(VIEWER, () => q(`select * from public.kiosk_scan_sources`))).length === 0);
+check("kiosk CANNOT read the kiosk addresses",
+  (await as(KIOSK, () => q(`select * from public.kiosk_scan_sources`))).length === 0);
+await expectError("nobody can forge a kiosk address",
+  () => as(ADMIN, () => q(`insert into public.kiosk_scan_sources (time_log_id, kiosk_ip) values ($1, '1.2.3.4')`, [sourceRow.time_log_id])),
+  /permission denied/);
+await expectError("nobody can rewrite a kiosk address",
+  () => as(ADMIN, () => q(`update public.kiosk_scan_sources set kiosk_ip = '1.2.3.4'`)), /permission denied/);
+
 await db.exec(`update public.app_settings set kiosk_ip_allowlist = '{}';`);
 await withHeaders(null);
+
+// ---------------------------------------------------------------------------
+// Snapshot paths: unguessable, and retirable if a link may have leaked
+// ---------------------------------------------------------------------------
+async function asService(fn) {
+  await db.exec(`set role service_role;`);
+  try {
+    return await fn();
+  } finally {
+    await db.exec(`reset role;`);
+  }
+}
+
+const RANDOM_PATH = /^\d{4}\/(0[1-9]|1[0-2])\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[0-9a-f]{32}\.jpg$/;
+const shots = await q(`select id, snapshot_path from public.time_logs
+                       where source = 'kiosk' and snapshot_path is not null
+                         and snapshot_purged_at is null order by occurred_at`);
+check("snapshot path carries a random component",
+  shots.length > 2 && shots.every((r) => RANDOM_PATH.test(r.snapshot_path)), shots[0]?.snapshot_path);
+check("the path cannot be derived from the time log id",
+  shots.every((r) => !r.snapshot_path.endsWith(`${r.id}.jpg`)));
+check("every snapshot gets its own random component",
+  new Set(shots.map((r) => r.snapshot_path.slice(-36, -4))).size === shots.length);
+
+const retire = (row, random = "a".repeat(32)) => `${row.snapshot_path.slice(0, 8)}${row.id}-${random}.jpg`;
+const [first, second, third] = shots;
+
+for (const [who, uid] of [["admins", ADMIN], ["viewers", VIEWER], ["the kiosk", KIOSK], ["anonymous", null]]) {
+  await expectError(`${who} cannot retire a snapshot path`,
+    () => as(uid, () => q(`select public.rekey_snapshot($1, $2)`, [first.id, retire(first)])), /permission denied/);
+}
+
+const [{ p: previous }] = await asService(() => q(`select public.rekey_snapshot($1, $2) p`, [first.id, retire(first)]));
+check("retiring returns the path that was left behind", previous === first.snapshot_path);
+check("the time log now points at the retired path",
+  (await q(`select snapshot_path from public.time_logs where id = $1`, [first.id]))[0].snapshot_path === retire(first));
+
+await expectError("a derivable path is refused as a retirement target",
+  () => asService(() => q(`select public.rekey_snapshot($1, $2)`, [second.id, `${second.snapshot_path.slice(0, 8)}${second.id}.jpg`])),
+  /random component/);
+await expectError("retiring a snapshot that no longer exists is refused",
+  () => asService(() => q(`select public.rekey_snapshot($1, $2)`, ["00000000-0000-0000-0000-000000000000", retire(second)])),
+  /No snapshot/);
+await expectError("snapshot_path stays immutable outside a retirement",
+  () => q(`update public.time_logs set snapshot_path = $2 where id = $1`, [second.id, retire(second, "b".repeat(32))]),
+  /cannot be changed/);
+
+// The permission is granted for exactly one statement: it must not still be on
+// for whatever the caller does next in the same transaction.
+await expectError("the retirement flag does not linger in the transaction", () => db.exec(`
+  begin;
+  select public.rekey_snapshot('${third.id}', '${retire(third, "c".repeat(32))}');
+  update public.time_logs set snapshot_path = '2026/01/deadbeef.jpg' where id = '${third.id}';
+  commit;`), /cannot be changed/);
+await db.exec(`rollback;`).catch(() => {});
 
 console.log(`\n${passed} passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);

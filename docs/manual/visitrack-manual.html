@@ -511,7 +511,7 @@
         <tr><td><strong>Var lagras uppgifterna?</strong></td><td>Databas och bilder hos Supabase i Stockholm. Webbplatsen körs via Vercel i Stockholm. Inga uppgifter lämnar EU.</td></tr>
         <tr><td><strong>Hur länge?</strong></td><td>Bilderna raderas automatiskt efter 90 dagar (kan ändras i Inställningar). Tidrapporterna sparas tills ni bestämmer annat.</td></tr>
         <tr><td><strong>Vem kan se bilderna?</strong></td><td>Endast inloggade med administratörs- eller läsbehörighet. Bilderna ligger i ett privat utrymme som bara servern når: varje visning går genom VisiTrack och kontrolleras mot din behörighet. Det går inte att skapa en delbar länk till en bild.</td></tr>
-        <tr><td><strong>Vad sparas?</strong></td><td>Namn, företag, roll, tider och en lågupplöst bild per registrering. Dessutom sparas kioskens nätverksadress för varje registrering, så att skanningar gjorda utanför skolan kan upptäckas. Ingen ansiktsigenkänning och ingen spårning i övrigt.</td></tr>
+        <tr><td><strong>Vad sparas?</strong></td><td>Namn, företag, roll, tider och en lågupplöst bild per registrering. Dessutom sparas kioskens nätverksadress för varje registrering, så att skanningar gjorda utanför skolan kan upptäckas. Adressen ligger i en egen tabell som bara administratörer kan läsa – den syns varken för läsbehörighet eller i exporten. Ingen ansiktsigenkänning och ingen spårning i övrigt.</td></tr>
       </table>
       <h3>Att göra på skolan</h3>
       <ul>
@@ -550,7 +550,11 @@
         </tr>
         <tr>
           <td><strong>Registreringar utan bild</strong></td>
-          <td>Titta på siffran i Översikt. Är den hög: kontrollera kamerans sikt och nätverket vid entrén.</td>
+          <td>Titta på siffran i Översikt. Är den hög: kontrollera kamerans sikt och nätverket vid entrén. Siffran räknar bilder som aldrig togs – att en sparad bild inte går att visa syns inte här, se nästa rad.</td>
+        </tr>
+        <tr>
+          <td><strong>”Bilden kunde inte hämtas”</strong></td>
+          <td>Bilden finns men servern når den inte – oftast fel eller saknad nyckel efter en flytt eller nyckelbyte. Det är <em>inte</em> samma sak som ”Bilden har raderats enligt lagringspolicyn”, som betyder att bilden är borta för gott. Kontakta den som förvaltar systemet; felet står i loggen som <code>snapshot-storage-unavailable</code> eller <code>snapshot-object-missing</code>.</td>
         </tr>
         <tr>
           <td><strong>Fel person på bilden</strong></td>
@@ -566,7 +570,8 @@
         <h4>Snabbkoll när något känns fel</h4>
         <p style="margin: 0">
           Öppna Översikt: visar <strong>Live</strong> och rimliga siffror fungerar kedjan hela vägen
-          från kiosken till databasen.
+          från kiosken till databasen. Bilderna hämtas i ett eget steg – öppna därför också en
+          registrering i Tidrapporter och se att bilden visas.
         </p>
       </div>
     </section>

@@ -10,6 +10,7 @@
     "test:db": "node supabase/tests/schema.test.mjs",
     "db:types": "supabase gen types typescript --local --schema public > src/lib/supabase/database.types.ts",
     "db:seed": "node scripts/seed-local.mjs",
+    "snapshots:rekey": "node scripts/rekey-snapshots.mjs",
     "predev": "node scripts/copy-zxing-wasm.mjs",
     "prebuild": "node scripts/copy-zxing-wasm.mjs",
     "manual:shots": "node scripts/manual-screenshots.mjs",

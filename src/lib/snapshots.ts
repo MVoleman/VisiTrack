@@ -8,9 +8,16 @@ type SnapshotFields = {
 
 export type SnapshotState = "available" | "missing" | "purged" | "none";
 
-/** Storage path of a kiosk snapshot: snapshots/<yyyy>/<mm>/<time_log_id>.jpg */
+/**
+ * Storage path of a kiosk snapshot: `<yyyy>/<mm>/<time_log_id>-<random>.jpg`.
+ *
+ * The random half is what makes a path unguessable, and lets a leaked path be
+ * retired for good (see supabase/migrations/20260918190000). Paths written
+ * before that migration have no random half, so both shapes are accepted until
+ * `npm run snapshots:rekey` has moved them.
+ */
 export const SNAPSHOT_PATH_PATTERN =
-  /^\d{4}\/(0[1-9]|1[0-2])\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$/;
+  /^\d{4}\/(0[1-9]|1[0-2])\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(-[0-9a-f]{32})?\.jpg$/;
 
 export function snapshotState(row: SnapshotFields): SnapshotState {
   if (!row.snapshot_path) return "none";
