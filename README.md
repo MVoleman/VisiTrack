@@ -4,6 +4,8 @@ Time & attendance for external school staff. Staff check in and out at an
 entrance kiosk by showing a personal QR code; the kiosk captures a webcam
 snapshot of the exact frame the code was read from, so admins can verify identity.
 
+**Production:** https://visitrack-six.vercel.app · Supabase (Stockholm, `eu-north-1`) · Vercel functions in `arn1`
+
 **Stack:** Next.js 16 (App Router, Turbopack) · Tailwind CSS v4 · shadcn/ui (Radix) ·
 Supabase (Postgres, Auth, Storage, Realtime) · deployed on Vercel.
 
