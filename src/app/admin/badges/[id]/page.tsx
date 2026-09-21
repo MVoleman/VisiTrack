@@ -73,8 +73,11 @@ export default async function BadgesPage({ params }: PageProps<"/admin/badges/[i
                 <p className="text-[4.2mm] leading-tight font-semibold tracking-tight text-gray-900 [overflow-wrap:anywhere]">
                   {badge.full_name}
                 </p>
+                {/* Both may wrap. The block is bottom-anchored, so a second line
+                    for the role grows upwards into the space under the logo
+                    instead of being cut off at the edge of the card. */}
                 <p className="mt-[1mm] line-clamp-2 text-[3mm] leading-snug text-gray-600">{badge.company}</p>
-                <p className="truncate text-[3mm] text-gray-600">{badge.role}</p>
+                <p className="mt-[0.8mm] line-clamp-2 text-[3mm] leading-snug text-gray-600">{badge.role}</p>
               </div>
             </div>
           </article>
