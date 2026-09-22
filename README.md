@@ -63,10 +63,15 @@ Hidden device menu: press and hold the VisiTrack logo for two seconds (restart c
 3. Add environment variables in Vercel: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
    `SUPABASE_SECRET_KEY`, `CRON_SECRET` and `NEXT_PUBLIC_SITE_URL` (see `.env.example`).
    `SUPABASE_SECRET_KEY` is required for snapshots to display, and `NEXT_PUBLIC_SITE_URL` for password
-   reset links — the app refuses to build those links from request headers.
+   reset and badge links — the app refuses to build those links from request headers.
+   To email QR codes, add `RESEND_API_KEY`, `BADGE_MAIL_FROM` and `BADGE_MAIL_REPLY_TO` as well; without
+   them the button in Personal answers "E-postutskick är inte konfigurerat" and nothing is sent.
 
-No third-party requests at runtime: fonts are self-hosted by `next/font`, and the QR decoder's WebAssembly
-file is served from `/zxing` (copied from `node_modules` by `scripts/copy-zxing-wasm.mjs`).
+No third-party requests from the browser: fonts are self-hosted by `next/font`, and the QR decoder's
+WebAssembly file is served from `/zxing` (copied from `node_modules` by `scripts/copy-zxing-wasm.mjs`).
+The server makes exactly one outbound call, and only when an admin emails a badge: Resend, to send
+that mail. The QR code itself is not in it - the mail carries a link to `/kod/<token>` that expires
+after a week, so the badge never leaves our own domain.
 
 ## Scripts
 
@@ -78,3 +83,7 @@ file is served from `/zxing` (copied from `node_modules` by `scripts/copy-zxing-
 | `npm run test:db`  | Schema/RLS test suite against in-memory Postgres (PGlite)     |
 | `npm run db:seed`  | Seed local Supabase with demo accounts and workers            |
 | `npm run db:types` | Regenerate `src/lib/supabase/database.types.ts` from local DB |
+| `npm run badge-mail:preview` | Render the badge email to a file without sending it           |
+| `npm run snapshots:rekey` | Retire snapshot paths if a photo link may have leaked         |
+| `npm run manual:shots` | Regenerate the manual's screenshots (needs a local dev server) |
+| `npm run manual:pdf`   | Rebuild `docs/manual/VisiTrack-manual.pdf` from the HTML       |

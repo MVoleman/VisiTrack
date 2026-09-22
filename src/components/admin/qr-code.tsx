@@ -60,12 +60,3 @@ export async function renderBadgePng({ token, name, company }: { token: string; 
 
   return canvas.toDataURL("image/png");
 }
-
-export function slugify(value: string) {
-  return value
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}

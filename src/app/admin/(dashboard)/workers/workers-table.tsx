@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import {
+  Mail,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -38,15 +39,20 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { formatDayShort } from "@/lib/time";
 import { cn, initials } from "@/lib/utils";
 import { deleteWorker, setWorkerActive } from "./actions";
 import { QrDialog, type QrWorker } from "./qr-dialog";
+import { SendBadgeDialog } from "./send-badge-dialog";
 import { WorkerFormDialog, type EditableWorker } from "./worker-form-dialog";
 
 export type WorkerListItem = EditableWorker & {
   is_active: boolean;
   present: boolean;
   last_activity: string | null;
+  /** When the badge was last emailed, and whether that link was ever opened. Admins only. */
+  badge_sent_at: string | null;
+  badge_opened: boolean;
 };
 
 type StatusFilter = "active" | "inactive" | "all";
@@ -58,6 +64,7 @@ export function WorkersTable({ workers, canManage }: { workers: WorkerListItem[]
   const [editing, setEditing] = useState<EditableWorker | null>(null);
   const [qrWorker, setQrWorker] = useState<QrWorker | null>(null);
   const [deleting, setDeleting] = useState<WorkerListItem | null>(null);
+  const [sendingTo, setSendingTo] = useState<WorkerListItem | null>(null);
   const [pending, startTransition] = useTransition();
 
   const counts = useMemo(
@@ -193,7 +200,18 @@ export function WorkersTable({ workers, canManage }: { workers: WorkerListItem[]
                         <span className="block font-medium text-foreground">{worker.full_name}</span>
                         <span className="block text-xs text-muted-foreground md:hidden">{worker.company} · {worker.role}</span>
                         <span className="hidden text-xs text-muted-foreground md:block lg:hidden">{worker.role}</span>
-                        {worker.email && <span className="block text-xs text-muted-foreground max-lg:hidden">{worker.email}</span>}
+                        {worker.email && (
+                          <span className="block text-xs text-muted-foreground max-lg:hidden">
+                            {worker.email}
+                            {worker.badge_sent_at && (
+                              <span className="text-muted-foreground/80">
+                                {" · kod skickad "}
+                                {formatDayShort(worker.badge_sent_at)}
+                                {worker.badge_opened && " · öppnad"}
+                              </span>
+                            )}
+                          </span>
+                        )}
                       </span>
                     </button>
                   </TableCell>
@@ -221,6 +239,13 @@ export function WorkersTable({ workers, canManage }: { workers: WorkerListItem[]
                             <a href={`/admin/badges/${worker.id}`} target="_blank" rel="noreferrer">
                               <Printer /> Skriv ut passerkort
                             </a>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() => setSendingTo(worker)}
+                            disabled={!worker.email}
+                            title={worker.email ? undefined : "Personen saknar e-postadress"}
+                          >
+                            <Mail /> Mejla QR-koden
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={() => {
@@ -267,7 +292,16 @@ export function WorkersTable({ workers, canManage }: { workers: WorkerListItem[]
         }}
       />
 
-      <QrDialog worker={qrWorker} onOpenChange={(open) => !open && setQrWorker(null)} />
+      <QrDialog
+        worker={qrWorker}
+        onOpenChange={(open) => !open && setQrWorker(null)}
+        onSend={(worker) => {
+          setQrWorker(null);
+          setSendingTo(workers.find((w) => w.id === worker.id) ?? null);
+        }}
+      />
+
+      <SendBadgeDialog worker={sendingTo} onOpenChange={(open) => !open && setSendingTo(null)} />
 
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>

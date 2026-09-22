@@ -86,6 +86,7 @@ daily purge job cannot delete anything either.
 | `kiosk_scan_sources`      | table    | Address each scan came from. Admin-only: RLS filters rows, not columns   |
 | `kiosk_scan_denials`      | table    | Scans refused by the network allowlist, as evidence. Admin-only          |
 | `kiosk_network_allowlist` | table    | Networks a kiosk may scan from. Empty = anywhere. Admin-only            |
+| `badge_links`             | table    | Emailed links to a worker's QR code. Holds a hash, never the link. Admin-only |
 | `app_settings`            | table    | Single row: time zone, presence window, duplicate window, retention days |
 | `current_presence`        | view     | Who is in the building right now                                         |
 | `work_sessions`           | view     | Check-in → check-out pairs with duration (reports, CSV export)           |
@@ -127,6 +128,7 @@ show ✓ + name  ──►  upload snapshot to snapshots/<yyyy>/<mm>/<time_log_i
 | The source address is readable by admins only, over the API and over realtime alike   | own table `kiosk_scan_sources`, admin-only policy |
 | A refused scan is recorded with its address and reason                                | `kiosk_scan_denials`                            |
 | A snapshot path cannot be guessed from a time log id, and can be retired if leaked    | `private.new_snapshot_path()`, `rekey_snapshot()` |
+| An emailed badge link expires, dies if the mail failed, and dies when the code is rotated | `badge_links`, `redeem_badge_link()`, `rotate_worker_qr_token()` |
 
 ### Settings
 
@@ -178,6 +180,22 @@ exchanges the token and forwards the person.
 Without SMTP configured, reset emails may silently not arrive. The app always shows the same
 confirmation message (it never reveals whether an address exists).
 
+### Emailing a worker their QR code
+
+Separate from the Supabase SMTP above: the app itself calls [Resend](https://resend.com)'s API when an
+admin picks **Mejla QR-koden** in Personal. Set `RESEND_API_KEY`, `BADGE_MAIL_FROM` (an address on a
+domain verified in Resend) and `BADGE_MAIL_REPLY_TO` in Vercel.
+
+The mail contains a link to `/kod/<token>`, never the code. The link expires after seven days, dies if
+the send failed, and dies the moment the worker's code is rotated. Only a SHA-256 hash of it is stored,
+so a database dump yields no working links. Sending is limited to three links per worker and thirty per
+admin per hour, enforced inside `create_badge_link` rather than in the app.
+
+Two provider behaviours worth knowing before the first support call: a 200 means the mail was **queued**,
+not delivered, and after a hard bounce or a spam complaint Resend silently suppresses further mail to
+that address while still answering 200. If someone insists they never got it, check the address in
+`badge_links.sent_to` first, then Resend's dashboard for that `provider_id`.
+
 ## If a link to a photo may have leaked
 
 A Supabase signed URL is a token over the literal string `snapshots/<path>`. It names no user, and
@@ -221,6 +239,11 @@ except storage URL signing - but an old deployment, integration or webhook might
   Time records are kept and marked "snapshot purged".
 - **Time logs** are kept indefinitely as billing/attendance records. Decide on a retention period with your data protection officer.
 - **Right to erasure:** not automated yet. A worker with logs can be deactivated; full erasure is a manual SQL operation for now.
+- **Badge emails:** the mail carries the person's name and a link, never the QR code itself, so the badge
+  stays on our own domain. The mail passes through Resend, whose account data (including message metadata)
+  is stored in the United States - add them to the DPA list alongside Supabase and Vercel. `badge_links`
+  keeps the address it was sent to, for as long as the link record is kept, because the record has to answer
+  where a key actually went.
 - **Kiosk addresses:** `kiosk_scan_sources.kiosk_ip` stores the IP a scan came from, which is personal data. It exists to detect scans made from outside the school and is kept for as long as the time log. Only admins can read it - it sits in its own table because row level security filters rows, never columns, so a column on `time_logs` would have been readable by viewers over the API and over the realtime channel.
 - Sign Supabase's and Vercel's Data Processing Addendums (DPA) and inform staff about the camera snapshots.
 

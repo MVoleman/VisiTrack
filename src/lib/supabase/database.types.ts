@@ -57,6 +57,76 @@ export type Database = {
         }
         Relationships: []
       }
+      badge_links: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          open_count: number
+          opened_at: string | null
+          provider_id: string | null
+          revoked_at: string | null
+          sent_by: string | null
+          sent_to: string
+          status: string
+          token_hash: string
+          worker_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          open_count?: number
+          opened_at?: string | null
+          provider_id?: string | null
+          revoked_at?: string | null
+          sent_by?: string | null
+          sent_to: string
+          status?: string
+          token_hash: string
+          worker_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          open_count?: number
+          opened_at?: string | null
+          provider_id?: string | null
+          revoked_at?: string | null
+          sent_by?: string | null
+          sent_to?: string
+          status?: string
+          token_hash?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "badge_links_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "badge_links_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "current_presence"
+            referencedColumns: ["worker_id"]
+          },
+          {
+            foreignKeyName: "badge_links_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kiosk_network_allowlist: {
         Row: {
           added_at: string
@@ -345,6 +415,15 @@ export type Database = {
       }
     }
     Functions: {
+      create_badge_link: {
+        Args: {
+          p_sent_to: string
+          p_token: string
+          p_valid_days?: number
+          p_worker_id: string
+        }
+        Returns: string
+      }
       kiosk_confirm_snapshot: {
         Args: { p_time_log_id: string }
         Returns: boolean
@@ -364,6 +443,20 @@ export type Database = {
       mark_snapshots_purged: {
         Args: { p_time_log_ids: string[] }
         Returns: number
+      }
+      record_badge_link_result: {
+        Args: { p_id: string; p_provider_id?: string; p_status: string }
+        Returns: undefined
+      }
+      redeem_badge_link: {
+        Args: { p_token: string }
+        Returns: {
+          company: string
+          expires_at: string
+          full_name: string
+          qr_token: string
+          role: string
+        }[]
       }
       rekey_snapshot: {
         Args: { p_new_path: string; p_time_log_id: string }

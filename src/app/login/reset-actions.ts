@@ -1,26 +1,9 @@
 "use server";
 
 import { z } from "zod";
+import { siteOrigin } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
-
-/**
- * Absolute origin used for the link in the reset email.
- *
- * Deliberately configuration-only: deriving it from the Host or X-Forwarded-Host
- * header lets anyone who can spoof those headers redirect a recovery token to
- * their own domain, which is account takeover. Returns null when unset so the
- * caller can fail with a clear message instead of sending a broken link.
- */
-function siteOrigin(): string | null {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (!configured) return null;
-  try {
-    return new URL(configured).origin;
-  } catch {
-    return null;
-  }
-}
 
 export async function requestPasswordReset(
   _prev: ActionResult | null,

@@ -458,12 +458,17 @@ check("refused scan is recorded with address and reason",
   denials[0]?.ip === "198.51.100.7" && denials[0]?.reason === "outside_allowlist",
   JSON.stringify(denials[0]));
 
+// Counted rather than read off the top of the list: an earlier block also
+// refuses an unknown address, and two denials inside the same microsecond made
+// "order by occurred_at desc limit 1" pick either one.
+const unknownAddress = `select count(*)::int n from public.kiosk_scan_denials where reason = 'unknown_source_address'`;
+const unknownBefore = (await q(unknownAddress))[0].n;
 await as(KIOSK, async () => {
   await withHeaders(null);
   return q(`select * from public.kiosk_register_scan($1)`, [w8.qr_token]);
 });
 check("refusal for an unknown address is recorded separately",
-  (await q(`select reason from public.kiosk_scan_denials order by occurred_at desc limit 1`))[0]?.reason === "unknown_source_address");
+  (await q(unknownAddress))[0].n === unknownBefore + 1);
 
 check("admin reads denied scans", (await as(ADMIN, () => q(`select * from public.kiosk_scan_denials`))).length === denialCountBefore + 1);
 check("viewer CANNOT read denied scans", (await as(VIEWER, () => q(`select * from public.kiosk_scan_denials`))).length === 0);
@@ -554,6 +559,96 @@ await expectError("the retirement flag does not linger in the transaction", () =
   update public.time_logs set snapshot_path = '2026/01/deadbeef.jpg' where id = '${third.id}';
   commit;`), /cannot be changed/);
 await db.exec(`rollback;`).catch(() => {});
+
+// ---------------------------------------------------------------------------
+// Emailed badge links
+// ---------------------------------------------------------------------------
+const LINK_TOKEN = "L".repeat(43);          // stands in for 32 random bytes, base64url
+const OTHER_TOKEN = "M".repeat(43);
+
+const [wLink] = await as(ADMIN, () =>
+  q(`insert into public.workers (full_name, company, role, email)
+     values ('Länk Testsson','Länkbolaget','Vaktmästare','lank@example.com') returning *`));
+
+// A worker and a token of their own for the permission attempts: if the guard
+// is ever removed, these must report "got success" rather than poison the rate
+// budget of the worker the rest of the block depends on.
+const [wGuard] = await as(ADMIN, () =>
+  q(`insert into public.workers (full_name, company, role) values ('Behörighet Test','B','B') returning *`));
+for (const [who, uid, tok] of [["viewers", VIEWER, "V"], ["the kiosk", KIOSK, "K"], ["anonymous", null, "A"]]) {
+  await expectError(`${who} cannot send a badge link`,
+    () => as(uid, () => q(`select public.create_badge_link($1, $2, $3)`, [wGuard.id, "b@example.com", tok.repeat(43)])),
+    /Only admins|permission denied/);
+}
+await expectError("a short link token is refused",
+  () => as(ADMIN, () => q(`select public.create_badge_link($1, $2, $3)`, [wLink.id, "lank@example.com", "kort"])),
+  /too short/i);
+
+const [{ create_badge_link: linkId }] = await as(ADMIN, () =>
+  q(`select public.create_badge_link($1, $2, $3)`, [wLink.id, "lank@example.com", LINK_TOKEN]));
+check("a link starts out pending", (await q(`select status from public.badge_links where id = $1`, [linkId]))[0].status === "pending");
+check("a link whose mail never went out is not redeemable",
+  (await q(`select * from public.redeem_badge_link($1)`, [LINK_TOKEN])).length === 0);
+
+const stored = (await q(`select token_hash, sent_by, sent_to from public.badge_links where id = $1`, [linkId]))[0];
+check("the link itself is never stored", stored.token_hash !== LINK_TOKEN && stored.token_hash.length === 64);
+check("the sender is stamped from the session, not passed in", stored.sent_by === ADMIN);
+check("the address is copied as it was at send time", stored.sent_to === "lank@example.com");
+
+await expectError("viewers cannot record a delivery result",
+  () => as(VIEWER, () => q(`select public.record_badge_link_result($1, 'accepted', 're_1')`, [linkId])), /Only admins|permission denied/);
+await as(ADMIN, () => q(`select public.record_badge_link_result($1, 'accepted', 're_1')`, [linkId]));
+
+const redeemed = await q(`select * from public.redeem_badge_link($1)`, [LINK_TOKEN]);
+check("an accepted link hands over the badge",
+  redeemed[0]?.full_name === "Länk Testsson" && /^vt1_/.test(redeemed[0]?.qr_token), JSON.stringify(redeemed[0]));
+check("a wrong token hands over nothing", (await q(`select * from public.redeem_badge_link($1)`, [OTHER_TOKEN])).length === 0);
+const opened = (await q(`select opened_at, open_count from public.badge_links where id = $1`, [linkId]))[0];
+check("opening is counted", opened.opened_at !== null && opened.open_count === 1, JSON.stringify(opened));
+
+await db.exec(`update public.badge_links set expires_at = now() - interval '1 day' where id = '${linkId}';`);
+check("an expired link hands over nothing", (await q(`select * from public.redeem_badge_link($1)`, [LINK_TOKEN])).length === 0);
+await db.exec(`update public.badge_links set expires_at = now() + interval '7 days' where id = '${linkId}';`);
+check("the same link works again once it is inside its window",
+  (await q(`select * from public.redeem_badge_link($1)`, [LINK_TOKEN])).length === 1);
+
+// Losing a phone should take one action, not two.
+await as(ADMIN, () => q(`select public.rotate_worker_qr_token($1)`, [wLink.id]));
+check("rotating the code kills the links that pointed at it",
+  (await q(`select * from public.redeem_badge_link($1)`, [LINK_TOKEN])).length === 0);
+
+// A send that failed must not leave a working key behind.
+const [{ create_badge_link: failedId }] = await as(ADMIN, () =>
+  q(`select public.create_badge_link($1, $2, $3)`, [wLink.id, "lank@example.com", OTHER_TOKEN]));
+await as(ADMIN, () => q(`select public.record_badge_link_result($1, 'failed', null)`, [failedId]));
+check("a link whose mail failed is dead", (await q(`select * from public.redeem_badge_link($1)`, [OTHER_TOKEN])).length === 0);
+await expectError("a result can only be recorded once",
+  () => as(ADMIN, () => q(`select public.record_badge_link_result($1, 'accepted', 're_2')`, [failedId])), /No pending link/);
+
+const [wOff] = await as(ADMIN, () =>
+  q(`insert into public.workers (full_name, company, role, is_active) values ('Slutad Person','S','S', false) returning *`));
+await expectError("no link for someone who is no longer active",
+  () => as(ADMIN, () => q(`select public.create_badge_link($1, $2, $3)`, [wOff.id, "x@example.com", LINK_TOKEN])), /not active/);
+
+const [wRate] = await as(ADMIN, () =>
+  q(`insert into public.workers (full_name, company, role) values ('Spam Testsson','S','S') returning *`));
+for (let i = 0; i < 3; i++) {
+  await as(ADMIN, () => q(`select public.create_badge_link($1, $2, $3)`, [wRate.id, "s@example.com", `R${i}`.padEnd(43, "x")]));
+}
+await expectError("a fourth link for the same person within the hour is refused",
+  () => as(ADMIN, () => q(`select public.create_badge_link($1, $2, $3)`, [wRate.id, "s@example.com", "Z".repeat(43)])),
+  /Too many links for this worker/);
+
+check("admin reads the badge links", (await as(ADMIN, () => q(`select * from public.badge_links`))).length > 0);
+check("viewer CANNOT read the badge links", (await as(VIEWER, () => q(`select * from public.badge_links`))).length === 0);
+check("kiosk CANNOT read the badge links", (await as(KIOSK, () => q(`select * from public.badge_links`))).length === 0);
+await expectError("nobody can forge a badge link",
+  () => as(ADMIN, () => q(`insert into public.badge_links (worker_id, token_hash, sent_to, expires_at)
+                           values ($1, 'deadbeef', 'x@y.se', now() + interval '1 day')`, [wLink.id])), /permission denied/);
+await expectError("nobody can rewrite a badge link",
+  () => as(ADMIN, () => q(`update public.badge_links set expires_at = now() + interval '365 days'`)), /permission denied/);
+check("badge links are not published over realtime",
+  (await q(`select count(*)::int n from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'badge_links'`))[0].n === 0);
 
 console.log(`\n${passed} passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);

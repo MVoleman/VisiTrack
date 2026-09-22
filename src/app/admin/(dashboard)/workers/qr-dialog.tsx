@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Download, Printer, RefreshCw, ShieldAlert } from "lucide-react";
+import { Download, Mail, Printer, RefreshCw, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
-import { QrCode, renderBadgePng, slugify } from "@/components/admin/qr-code";
+import { QrCode, renderBadgePng } from "@/components/admin/qr-code";
+import { slugify } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,9 +20,17 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Spinner } from "@/components/ui/spinner";
 import { getWorkerQrToken, rotateQrToken } from "./actions";
 
-export type QrWorker = { id: string; full_name: string; company: string; role: string; qr_token?: string };
+export type QrWorker = { id: string; full_name: string; company: string; role: string; email?: string | null; qr_token?: string };
 
-export function QrDialog({ worker, onOpenChange }: { worker: QrWorker | null; onOpenChange: (open: boolean) => void }) {
+export function QrDialog({
+  worker,
+  onOpenChange,
+  onSend,
+}: {
+  worker: QrWorker | null;
+  onOpenChange: (open: boolean) => void;
+  onSend?: (worker: QrWorker) => void;
+}) {
   const [token, setToken] = useState<{ workerId: string; value: string } | null>(null);
   const [confirmRotate, setConfirmRotate] = useState(false);
   const [rotating, startRotate] = useTransition();
@@ -109,6 +118,17 @@ export function QrDialog({ worker, onOpenChange }: { worker: QrWorker | null; on
                 </a>
               </Button>
             </div>
+            {onSend && (
+              <Button
+                variant="outline"
+                onClick={() => worker && onSend(worker)}
+                disabled={!worker?.email}
+                title={worker?.email ? undefined : "Personen saknar e-postadress"}
+              >
+                <Mail />
+                {worker?.email ? "Mejla koden" : "Ingen e-postadress"}
+              </Button>
+            )}
             <Button
               variant="ghost"
               className="text-muted-foreground"

@@ -331,6 +331,27 @@
         </p>
       </div>
 
+      <h3>Skicka koden med e-post</h3>
+      <p>
+        Har personen en e-postadress kan du välja <strong>Mejla QR-koden</strong> i menyn på raden.
+        Mottagaren får ett mejl med en länk, öppnar den i telefonen och sparar bilden – då fungerar
+        koden även utan täckning. Saknas adress är valet gråmarkerat; lägg till adressen under
+        <strong>Redigera</strong> först.
+      </p>
+      <p>
+        Mejlet innehåller <em>inte</em> själva koden, utan en länk som slutar gälla efter sju dagar.
+        Skapar du en ny QR-kod slutar länken fungera direkt. I personallistan ser du när koden
+        skickades och om länken har öppnats, så du vet vem som fått sin kod.
+      </p>
+      <div class="card">
+        <h4>Innan du skickar</h4>
+        <p style="margin: 0">
+          Kontrollera adressen i rutan som visas. En felstavad adress kan tillhöra någon annan, och
+          då har den personen en fungerande nyckel. Skulle det hända: öppna koden och välj
+          <strong>Skapa ny QR-kod</strong>, så slutar både den gamla koden och länken att fungera.
+        </p>
+      </div>
+
       <h3>Passerkort att skriva ut</h3>
       <p>
         <strong>Skriv ut alla passerkort</strong> ger ett ark med kort i kreditkortsformat för all
@@ -508,10 +529,10 @@
       </p>
       <table>
         <tr><th style="width: 34%">Område</th><th>Så fungerar det</th></tr>
-        <tr><td><strong>Var lagras uppgifterna?</strong></td><td>Databas och bilder hos Supabase i Stockholm. Webbplatsen körs via Vercel i Stockholm. Inga uppgifter lämnar EU.</td></tr>
+        <tr><td><strong>Var lagras uppgifterna?</strong></td><td>Databas och bilder hos Supabase i Stockholm. Webbplatsen körs via Vercel i Stockholm. Skickar du QR-koder med e-post passerar de mejlen tjänsten Resend, som lagrar avsändarinformation i USA – teckna personuppgiftsbiträdesavtal även med dem. Själva QR-koden finns aldrig i mejlet, bara en länk till visitrack.se.</td></tr>
         <tr><td><strong>Hur länge?</strong></td><td>Bilderna raderas automatiskt efter 90 dagar (kan ändras i Inställningar). Tidrapporterna sparas tills ni bestämmer annat.</td></tr>
         <tr><td><strong>Vem kan se bilderna?</strong></td><td>Endast inloggade med administratörs- eller läsbehörighet. Bilderna ligger i ett privat utrymme som bara servern når: varje visning går genom VisiTrack och kontrolleras mot din behörighet. Det går inte att skapa en delbar länk till en bild.</td></tr>
-        <tr><td><strong>Vad sparas?</strong></td><td>Namn, företag, roll, tider och en lågupplöst bild per registrering. Dessutom sparas kioskens nätverksadress för varje registrering, så att skanningar gjorda utanför skolan kan upptäckas. Adressen ligger i en egen tabell som bara administratörer kan läsa – den syns varken för läsbehörighet eller i exporten. Ingen ansiktsigenkänning och ingen spårning i övrigt.</td></tr>
+        <tr><td><strong>Vad sparas?</strong></td><td>Namn, företag, roll, tider och en lågupplöst bild per registrering. Skickar du en QR-kod med e-post sparas också adressen mejlet gick till och när länken öppnades. Dessutom sparas kioskens nätverksadress för varje registrering, så att skanningar gjorda utanför skolan kan upptäckas. Adressen ligger i en egen tabell som bara administratörer kan läsa – den syns varken för läsbehörighet eller i exporten. Ingen ansiktsigenkänning och ingen spårning i övrigt.</td></tr>
       </table>
       <h3>Att göra på skolan</h3>
       <ul>
@@ -559,6 +580,14 @@
         <tr>
           <td><strong>Fel person på bilden</strong></td>
           <td>Makulera registreringen med orsak, och skapa en ny QR-kod till personen vars kod använts.</td>
+        </tr>
+        <tr>
+          <td><strong>Personen fick inget mejl med QR-koden</strong></td>
+          <td>Kontrollera först adressen i personallistan – den syns under namnet. Be personen titta i skräpposten. Har någon en gång markerat ett mejl från VisiTrack som skräp slutar det komma fram utan att systemet märker det; hör av dig till systemansvarig. Under tiden kan du skriva ut ett passerkort i stället.</td>
+        </tr>
+        <tr>
+          <td><strong>Länken i mejlet fungerar inte</strong></td>
+          <td>Länken gäller i sju dagar och slutar gälla direkt om koden har skapats om. Skicka en ny.</td>
         </tr>
         <tr>
           <td><strong>Inget mejl vid lösenordsbyte</strong></td>

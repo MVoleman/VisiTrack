@@ -1,8 +1,12 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
+import { badgeMailContent } from "@/lib/badge-mail";
+import { sendEmail } from "@/lib/mail/resend";
+import { siteOrigin } from "@/lib/site-url";
 import type { ActionResult } from "@/lib/types";
 
 const text = (max: number, label: string) =>
@@ -112,3 +116,92 @@ export async function deleteWorker(workerId: string): Promise<ActionResult> {
   revalidatePath("/admin", "layout");
   return { ok: true, message: "Personen är borttagen." };
 }
+
+/**
+ * Emails a worker a link to their own QR code.
+ *
+ * The link, not the code, travels by mail: it expires in a week and lives on
+ * our own domain, so the badge itself never reaches the mail provider. The
+ * address the admin confirmed is passed back in and compared, because someone
+ * else may have edited the person since the dialog was opened - and a badge
+ * sent to the wrong address is a working key in a stranger's inbox.
+ */
+export async function sendBadgeLink(workerId: string, confirmedEmail: string): Promise<ActionResult> {
+  const { supabase } = await requireAdmin();
+  if (!z.uuid().safeParse(workerId).success) return { ok: false, error: "Ogiltig person." };
+
+  const origin = siteOrigin();
+  const from = process.env.BADGE_MAIL_FROM;
+  if (!origin || !from) {
+    console.error("badge-mail-unconfigured:", !origin ? "NEXT_PUBLIC_SITE_URL" : "BADGE_MAIL_FROM", "is not set");
+    return { ok: false, error: "E-postutskick är inte konfigurerat. Kontakta systemansvarig." };
+  }
+
+  const { data: worker, error: readError } = await supabase
+    .from("workers")
+    .select("id, full_name, company, email, is_active")
+    .eq("id", workerId)
+    .single();
+
+  if (readError || !worker) return { ok: false, error: "Personen kunde inte hämtas." };
+  if (!worker.email) return { ok: false, error: "Personen saknar e-postadress. Lägg till den under Redigera." };
+  if (!worker.is_active) return { ok: false, error: "Personen är inaktiverad. Aktivera först om koden ska fungera." };
+  if (worker.email !== confirmedEmail.trim().toLowerCase()) {
+    return { ok: false, error: "Adressen har ändrats sedan rutan öppnades. Stäng och försök igen." };
+  }
+
+  const token = randomBytes(32).toString("base64url");
+  const { data: linkId, error: linkError } = await supabase.rpc("create_badge_link", {
+    p_worker_id: workerId,
+    p_sent_to: worker.email,
+    p_token: token,
+  });
+
+  if (linkError || !linkId) {
+    console.error("sendBadgeLink: create_badge_link", { workerId, code: linkError?.code });
+    if (linkError?.message?.includes("Too many links")) {
+      return { ok: false, error: "Koden har redan skickats flera gånger den senaste timmen. Vänta en stund." };
+    }
+    return { ok: false, error: "Länken kunde inte skapas. Försök igen." };
+  }
+
+  const { data: link } = await supabase.from("badge_links").select("expires_at").eq("id", linkId).single();
+
+  const mail = badgeMailContent({
+    fullName: worker.full_name,
+    url: `${origin}/kod/${token}`,
+    expiresAt: link?.expires_at ?? new Date(),
+  });
+
+  const outcome = await sendEmail({
+    from,
+    to: worker.email,
+    replyTo: process.env.BADGE_MAIL_REPLY_TO,
+    ...mail,
+    // One key per attempt: a timed-out request that did go through must not
+    // become a second mail when the admin clicks again.
+    idempotencyKey: linkId,
+  });
+
+  // Recorded either way. A link whose mail never went out stays unusable, so a
+  // failed send cannot leave a working key behind.
+  await supabase.rpc("record_badge_link_result", {
+    p_id: linkId,
+    p_status: outcome.ok ? "accepted" : "failed",
+    p_provider_id: outcome.ok ? outcome.id : undefined,
+  });
+
+  if (!outcome.ok) {
+    console.error("sendBadgeLink: send failed", { workerId, kind: outcome.kind, code: outcome.code });
+    return { ok: false, error: SEND_FAILURE[outcome.kind] };
+  }
+
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: `QR-koden är skickad till ${worker.email}.` };
+}
+
+const SEND_FAILURE = {
+  unconfigured: "E-postutskick är inte konfigurerat. Kontakta systemansvarig.",
+  quota: "Månadens e-postkvot är slut. Kontakta systemansvarig.",
+  transient: "Mejlet kunde inte skickas just nu. Försök igen om en stund.",
+} as const;

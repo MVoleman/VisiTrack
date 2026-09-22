@@ -17,7 +17,8 @@ const PROJECT = join(import.meta.dirname, "..");
 const OUT = process.argv[2] ?? join(PROJECT, "docs/manual/img");
 const PROFILE = "/tmp/visitrack-shots-profile";
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const BASE = "http://localhost:3000";
+// Override when the app runs somewhere else, e.g. MANUAL_BASE=http://localhost:3151.
+const BASE = process.env.MANUAL_BASE ?? "http://localhost:3000";
 
 const { session, WORKERS } = JSON.parse(
   execSync(`node ${join(import.meta.dirname, "manual-session.mjs")}`, { encoding: "utf8" }),
