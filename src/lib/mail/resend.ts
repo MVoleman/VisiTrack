@@ -15,11 +15,11 @@ export type SendOutcome =
   /** Queued by the provider. NOT the same as delivered. */
   | { ok: true; id: string }
   /** Nothing will work until someone fixes the configuration. */
-  | { ok: false; kind: "unconfigured"; code: string }
+  | { ok: false; kind: "unconfigured"; code: string; detail?: string }
   /** The account is out of allowance. */
-  | { ok: false; kind: "quota"; code: string }
+  | { ok: false; kind: "quota"; code: string; detail?: string }
   /** Worth another try in a moment. */
-  | { ok: false; kind: "transient"; code: string };
+  | { ok: false; kind: "transient"; code: string; detail?: string };
 
 // Resend's machine-readable `name` values, grouped by what the sender should do.
 const UNCONFIGURED = new Set([
@@ -85,10 +85,14 @@ export async function sendEmail({
     return body?.id ? { ok: true, id: body.id } : { ok: false, kind: "transient", code: "no_id" };
   }
 
-  const error = (await response.json().catch(() => null)) as { name?: string } | null;
+  const error = (await response.json().catch(() => null)) as { name?: string; message?: string } | null;
   const code = error?.name ?? `http_${response.status}`;
+  // The provider's own sentence, passed back for whoever is setting this up. It
+  // says things like which domain is unverified, which no error code can. It is
+  // shown to admins only, and never written to a log alongside the key.
+  const detail = error?.message?.slice(0, 200);
 
-  if (UNCONFIGURED.has(code)) return { ok: false, kind: "unconfigured", code };
-  if (QUOTA.has(code)) return { ok: false, kind: "quota", code };
-  return { ok: false, kind: "transient", code };
+  if (UNCONFIGURED.has(code)) return { ok: false, kind: "unconfigured", code, detail };
+  if (QUOTA.has(code)) return { ok: false, kind: "quota", code, detail };
+  return { ok: false, kind: "transient", code, detail };
 }

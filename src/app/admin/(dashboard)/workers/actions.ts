@@ -196,10 +196,11 @@ export async function sendBadgeLink(workerId: string, confirmedEmail: string): P
   });
 
   if (!outcome.ok) {
-    console.error("sendBadgeLink: send failed", { workerId, kind: outcome.kind, code: outcome.code });
+    console.error("sendBadgeLink: send failed", { workerId, kind: outcome.kind, code: outcome.code, detail: outcome.detail });
     // The provider's own code comes along, the way passwordErrorMessage keeps
     // Supabase's: a failure should be diagnosable from a screenshot.
-    return { ok: false, error: `${SEND_FAILURE[outcome.kind]} (felkod: ${outcome.code})` };
+    const detail = outcome.detail ? ` – ${outcome.detail}` : "";
+    return { ok: false, error: `${SEND_FAILURE[outcome.kind]} (${outcome.code}${detail})` };
   }
 
   revalidatePath("/admin", "layout");
