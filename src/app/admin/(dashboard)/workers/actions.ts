@@ -133,8 +133,12 @@ export async function sendBadgeLink(workerId: string, confirmedEmail: string): P
   const origin = siteOrigin();
   const from = process.env.BADGE_MAIL_FROM;
   if (!origin || !from) {
-    console.error("badge-mail-unconfigured:", !origin ? "NEXT_PUBLIC_SITE_URL" : "BADGE_MAIL_FROM", "is not set");
-    return { ok: false, error: "E-postutskick är inte konfigurerat. Kontakta systemansvarig." };
+    // Named, not just logged: only an admin can reach this, and the person
+    // looking at the screen is the one who can fix it. Chasing it through the
+    // hosting provider's logs instead costs a round trip every time.
+    const missing = !origin ? "NEXT_PUBLIC_SITE_URL" : "BADGE_MAIL_FROM";
+    console.error("badge-mail-unconfigured:", missing, "is not set");
+    return { ok: false, error: `E-postutskick är inte konfigurerat: ${missing} saknas.` };
   }
 
   const { data: worker, error: readError } = await supabase
@@ -193,7 +197,9 @@ export async function sendBadgeLink(workerId: string, confirmedEmail: string): P
 
   if (!outcome.ok) {
     console.error("sendBadgeLink: send failed", { workerId, kind: outcome.kind, code: outcome.code });
-    return { ok: false, error: SEND_FAILURE[outcome.kind] };
+    // The provider's own code comes along, the way passwordErrorMessage keeps
+    // Supabase's: a failure should be diagnosable from a screenshot.
+    return { ok: false, error: `${SEND_FAILURE[outcome.kind]} (felkod: ${outcome.code})` };
   }
 
   revalidatePath("/admin", "layout");
@@ -201,7 +207,7 @@ export async function sendBadgeLink(workerId: string, confirmedEmail: string): P
 }
 
 const SEND_FAILURE = {
-  unconfigured: "E-postutskick är inte konfigurerat. Kontakta systemansvarig.",
+  unconfigured: "E-postutskick är inte konfigurerat – avsändaren eller nyckeln avvisades.",
   quota: "Månadens e-postkvot är slut. Kontakta systemansvarig.",
   transient: "Mejlet kunde inte skickas just nu. Försök igen om en stund.",
 } as const;
