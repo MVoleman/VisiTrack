@@ -183,11 +183,20 @@ export async function sendBadgeLink(workerId: string, confirmedEmail: string): P
     expiresAt: link?.expires_at ?? new Date(),
   });
 
+  // A malformed reply-to must not block a badge, but it must not disappear
+  // quietly either: without it a reply goes to the no-reply sender, and the
+  // person whose code will not scan writes into a void.
+  const configuredReplyTo = process.env.BADGE_MAIL_REPLY_TO?.trim();
+  const replyTo = mailAddress(configuredReplyTo);
+  const replyToBroken = !!configuredReplyTo && !replyTo;
+  if (replyToBroken) {
+    console.error("badge-mail: BADGE_MAIL_REPLY_TO is not an address, sending without it");
+  }
+
   const outcome = await sendEmail({
     from,
     to: worker.email,
-    // A malformed reply-to must not block a badge; it is dropped and logged.
-    replyTo: mailAddress(process.env.BADGE_MAIL_REPLY_TO) ?? undefined,
+    replyTo: replyTo ?? undefined,
     ...mail,
     // One key per attempt: a timed-out request that did go through must not
     // become a second mail when the admin clicks again.
@@ -211,7 +220,12 @@ export async function sendBadgeLink(workerId: string, confirmedEmail: string): P
   }
 
   revalidatePath("/admin", "layout");
-  return { ok: true, message: `QR-koden är skickad till ${worker.email}.` };
+  const caveat = replyToBroken
+    ? " Svarsadressen är felaktig och utelämnades – svar går till avsändaren."
+    : !configuredReplyTo
+      ? " Ingen svarsadress är inställd – svar går till avsändaren."
+      : "";
+  return { ok: true, message: `QR-koden är skickad till ${worker.email}.${caveat}` };
 }
 
 const SEND_FAILURE = {
