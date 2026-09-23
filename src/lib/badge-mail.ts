@@ -32,6 +32,7 @@ export function mailAddress(raw: string | undefined): string | null {
 }
 
 const SUPPORT = "Kontakta skolans reception om något inte stämmer.";
+const SUPPORT_EN = "Contact the school reception if something is not right.";
 
 export function badgeMailContent({
   fullName,
@@ -50,8 +51,16 @@ export function badgeMailContent({
     month: "long",
     timeZone,
   }).format(new Date(expiresAt));
+  const validUntilEn = new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    timeZone,
+  }).format(new Date(expiresAt));
 
-  const subject = "Din QR-kod för in- och utcheckning";
+  // Both languages in the subject: the people this is for are external staff,
+  // and the ones who need the English version have to recognise the mail before
+  // they open it.
+  const subject = "Din QR-kod för in- och utcheckning / Your QR code";
 
   const text = [
     `Hej ${firstName},`,
@@ -65,6 +74,20 @@ export function badgeMailContent({
     "Koden är personlig och fungerar som en nyckel. Skicka den inte vidare. Tappar du telefonen, säg till på skolan så spärrar vi koden och skickar en ny.",
     "",
     SUPPORT,
+    "",
+    "---",
+    "",
+    `Hi ${firstName},`,
+    "",
+    "This is your personal QR code for checking in and out at the school. Open the link and save the picture to your phone - then the code works even when you have no signal.",
+    "",
+    url,
+    "",
+    `The link works until ${validUntilEn}. Please save the picture before then.`,
+    "",
+    "The code is personal and works like a key. Do not pass it on. If you lose your phone, tell the school and we will block the code and send you a new one.",
+    "",
+    SUPPORT_EN,
   ].join("\n");
 
   // Inline styles only, and a table for the button: mail clients strip <style>
@@ -100,6 +123,27 @@ export function badgeMailContent({
           säg till på skolan så spärrar vi koden och skickar en ny.
         </p>
         <p style="margin:0;font-size:13px;color:#8a929e">${SUPPORT}</p>
+
+        <hr style="margin:28px 0;border:0;border-top:1px solid #e5e7eb">
+
+        <p style="margin:0 0 20px;font-size:16px">Hi ${escapeHtml(firstName)},</p>
+        <p style="margin:0 0 24px;font-size:16px">
+          This is your personal QR code for checking in and out at the school. Open the link and save
+          the picture to your phone – then the code works even when you have no signal.
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px">
+          <tr><td style="border-radius:12px;background:#3563b8">
+            <a href="${escapeHtml(url)}" style="display:inline-block;padding:14px 24px;font-size:16px;font-weight:600;color:#ffffff;text-decoration:none">Open your QR code</a>
+          </td></tr>
+        </table>
+        <p style="margin:0 0 24px;font-size:14px;color:#5b6472">
+          The link works until ${escapeHtml(validUntilEn)}. Please save the picture before then.
+        </p>
+        <p style="margin:0 0 24px;padding:14px 16px;background:#f3f4f6;border-radius:12px;font-size:14px;color:#374151">
+          The code is personal and works like a key. Do not pass it on. If you lose your phone, tell the
+          school and we will block the code and send you a new one.
+        </p>
+        <p style="margin:0;font-size:13px;color:#8a929e">${SUPPORT_EN}</p>
       </td></tr>
     </table>
   </body>

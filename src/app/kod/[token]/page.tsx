@@ -35,6 +35,10 @@ export default async function BadgeLinkPage({ params }: PageProps<"/kod/[token]"
         <p className="mt-1.5 text-muted-foreground text-pretty">
           Länken i mejlet är tidsbegränsad. Kontakta skolan så skickar vi en ny.
         </p>
+        <p className="mt-4 border-t pt-4 text-sm text-muted-foreground text-pretty">
+          <span className="font-medium text-foreground/70">This link is no longer valid.</span> The link
+          in the email expires after a week. Contact the school and we will send you a new one.
+        </p>
       </Frame>
     );
   }
@@ -44,6 +48,11 @@ export default async function BadgeLinkPage({ params }: PageProps<"/kod/[token]"
       <h1 className="text-2xl font-semibold tracking-tight">Din QR-kod</h1>
       <p className="mt-1.5 text-muted-foreground text-pretty">
         Visa koden för kameran vid entrén när du kommer och när du går.
+      </p>
+      {/* The people this page is for are external staff, and not all of them
+          read Swedish. The English text says the same thing, quieter. */}
+      <p className="mt-1.5 text-sm text-muted-foreground/90 text-pretty">
+        Show the code to the camera at the entrance when you arrive and when you leave.
       </p>
 
       <div className="mt-8 rounded-2xl bg-card p-6 shadow-lifted ring-1 ring-foreground/[0.06]">
@@ -65,11 +74,16 @@ export default async function BadgeLinkPage({ params }: PageProps<"/kod/[token]"
         <span>
           Koden är personlig och fungerar som en nyckel – skicka den inte vidare. Tappar du telefonen, säg
           till på skolan så spärras koden och du får en ny.
+          <span className="mt-2 block text-muted-foreground/90">
+            The code is personal and works like a key – do not pass it on. If you lose your phone, tell
+            the school and the code will be blocked and replaced.
+          </span>
         </span>
       </p>
 
-      <p className="mt-3 text-center text-xs text-muted-foreground">
+      <p className="mt-3 text-center text-xs text-muted-foreground text-balance">
         Länken gäller till {formatDate(badge.expires_at)}. Spara gärna bilden innan dess.
+        <span className="mt-1 block">The link works until {formatDate(badge.expires_at)} – please save the picture before then.</span>
       </p>
     </Frame>
   );

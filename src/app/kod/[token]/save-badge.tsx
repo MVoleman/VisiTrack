@@ -31,7 +31,7 @@ export function SaveBadge({ token, name, company }: { token: string; name: strin
   return (
     <Button size="lg" className="w-full" onClick={save} disabled={saving}>
       {saving ? <Spinner /> : <Download />}
-      Spara bilden
+      Spara bilden · Save image
     </Button>
   );
 }
