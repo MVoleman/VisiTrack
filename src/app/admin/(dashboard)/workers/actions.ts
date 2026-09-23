@@ -221,7 +221,7 @@ export async function sendBadgeLink(workerId: string, confirmedEmail: string): P
 
   revalidatePath("/admin", "layout");
   const caveat = replyToBroken
-    ? " Svarsadressen är felaktig och utelämnades – svar går till avsändaren."
+    ? ` Svarsadressen är felaktig och utelämnades (${configuredReplyTo?.slice(0, 60)}) – svar går till avsändaren.`
     : !configuredReplyTo
       ? " Ingen svarsadress är inställd – svar går till avsändaren."
       : "";

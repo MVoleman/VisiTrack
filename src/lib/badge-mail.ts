@@ -22,7 +22,8 @@ export type BadgeMail = { subject: string; html: string; text: string };
  * instead of failing at the provider.
  */
 export function mailAddress(raw: string | undefined): string | null {
-  const value = raw?.trim().replace(/^["']|["']$/g, "").trim();
+  // mailto: comes along when the value is copied out of a link or a signature.
+  const value = raw?.trim().replace(/^["']|["']$/g, "").trim().replace(/^mailto:/i, "").trim();
   if (!value) return null;
   const plain = /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/;
   const withName = /^[^<>]+<\s*[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+\s*>$/;
