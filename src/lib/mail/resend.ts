@@ -74,10 +74,18 @@ export async function sendEmail({
       body: JSON.stringify({ from, to, reply_to: replyTo, subject, html, text }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-  } catch {
-    // Timed out or never connected. Next dispatches server actions one at a
-    // time per client, so waiting longer than this would freeze the page.
-    return { ok: false, kind: "transient", code: "no_response" };
+  } catch (error) {
+    // Timed out, refused, DNS, TLS: all transient, but not the same thing to
+    // chase, so the cause travels with the code. (The timeout is deliberate:
+    // Next dispatches server actions one at a time per client, so waiting
+    // longer than this would freeze the page the admin is looking at.)
+    const name = error instanceof Error ? error.name : "unknown";
+    return {
+      ok: false,
+      kind: "transient",
+      code: name === "TimeoutError" ? "timeout" : "no_response",
+      detail: error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 120) : undefined,
+    };
   }
 
   if (response.ok) {
