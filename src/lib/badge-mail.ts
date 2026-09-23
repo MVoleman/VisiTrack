@@ -12,6 +12,25 @@
 
 export type BadgeMail = { subject: string; html: string; text: string };
 
+/**
+ * Reads a sender or reply-to address out of an environment variable.
+ *
+ * Values pasted into a hosting dashboard routinely arrive wrapped in quotes or
+ * with a stray space, and the mail provider answers that with nothing more
+ * useful than "Invalid `from` field". Both are stripped here, and anything that
+ * still is not an address returns null so the caller can say so precisely
+ * instead of failing at the provider.
+ */
+export function mailAddress(raw: string | undefined): string | null {
+  const value = raw?.trim().replace(/^["']|["']$/g, "").trim();
+  if (!value) return null;
+  const plain = /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/;
+  const withName = /^[^<>]+<\s*[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+\s*>$/;
+  if (plain.test(value)) return value;
+  if (withName.test(value)) return value.replace(/<\s*/, "<").replace(/\s*>$/, ">");
+  return null;
+}
+
 const SUPPORT = "Kontakta skolans reception om något inte stämmer.";
 
 export function badgeMailContent({

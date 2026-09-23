@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
-import { badgeMailContent } from "@/lib/badge-mail";
+import { badgeMailContent, mailAddress } from "@/lib/badge-mail";
 import { sendEmail } from "@/lib/mail/resend";
 import { siteOrigin } from "@/lib/site-url";
 import type { ActionResult } from "@/lib/types";
@@ -131,14 +131,20 @@ export async function sendBadgeLink(workerId: string, confirmedEmail: string): P
   if (!z.uuid().safeParse(workerId).success) return { ok: false, error: "Ogiltig person." };
 
   const origin = siteOrigin();
-  const from = process.env.BADGE_MAIL_FROM;
+  const from = mailAddress(process.env.BADGE_MAIL_FROM);
   if (!origin || !from) {
     // Named, not just logged: only an admin can reach this, and the person
     // looking at the screen is the one who can fix it. Chasing it through the
     // hosting provider's logs instead costs a round trip every time.
     const missing = !origin ? "NEXT_PUBLIC_SITE_URL" : "BADGE_MAIL_FROM";
-    console.error("badge-mail-unconfigured:", missing, "is not set");
-    return { ok: false, error: `E-postutskick är inte konfigurerat: ${missing} saknas.` };
+    const stored = !origin ? undefined : process.env.BADGE_MAIL_FROM?.trim();
+    console.error("badge-mail-unconfigured:", missing, stored ? "is not an address" : "is not set");
+    return {
+      ok: false,
+      error: stored
+        ? `E-postutskick är inte konfigurerat: ${missing} är inte en adress (${stored.slice(0, 60)}).`
+        : `E-postutskick är inte konfigurerat: ${missing} saknas.`,
+    };
   }
 
   const { data: worker, error: readError } = await supabase
@@ -180,7 +186,8 @@ export async function sendBadgeLink(workerId: string, confirmedEmail: string): P
   const outcome = await sendEmail({
     from,
     to: worker.email,
-    replyTo: process.env.BADGE_MAIL_REPLY_TO,
+    // A malformed reply-to must not block a badge; it is dropped and logged.
+    replyTo: mailAddress(process.env.BADGE_MAIL_REPLY_TO) ?? undefined,
     ...mail,
     // One key per attempt: a timed-out request that did go through must not
     // become a second mail when the admin clicks again.
