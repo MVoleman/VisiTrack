@@ -23,8 +23,11 @@ export type BadgeMail = { subject: string; html: string; text: string };
  */
 export function mailAddress(raw: string | undefined): string | null {
   // mailto: comes along when the value is copied out of a link or a signature.
-  const value = raw?.trim().replace(/^["']|["']$/g, "").trim().replace(/^mailto:/i, "").trim();
-  if (!value) return null;
+  const cleaned = raw?.trim().replace(/^["']|["']$/g, "").trim().replace(/^mailto:/i, "").trim();
+  if (!cleaned) return null;
+  // "<name@example.com>" with no display name is a valid address and is what a
+  // mail client hands you when you copy a contact. Unwrap it rather than refuse.
+  const value = cleaned.replace(/^<\s*([^<>]+?)\s*>$/, "$1");
   const plain = /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/;
   const withName = /^[^<>]+<\s*[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+\s*>$/;
   if (plain.test(value)) return value;
